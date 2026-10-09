@@ -3,10 +3,13 @@ using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
+    PlayerHealth health;
     Rigidbody2D rb;
 
     public float moveSpeed = 3.5f;
-    public float jumpPower = 500f;
+    public float jumpPower = 15f;
+
+    public int Facing { get; private set; } = 1;   // 1=âE, -1=ç∂
 
     int jumpCount = 0;
     int maxJumpCount = 2;
@@ -14,6 +17,7 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        health = GetComponent<PlayerHealth>();
     }
 
     void Update()
@@ -30,18 +34,25 @@ public class PlayerController : MonoBehaviour
             x = 1;
         }
 
-        rb.linearVelocity = new Vector2(
-            x * moveSpeed,
-            rb.linearVelocity.y
-        );
+        if (x != 0) Facing = (int)x;
+
+        bool stunned = health != null && health.IsStunned;
+
+        if (!stunned)
+        {
+            rb.linearVelocity = new Vector2(
+                x * moveSpeed,
+                rb.linearVelocity.y
+            );
+        }
 
         // ÉWÉÉÉìÉv
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        if (!stunned && Keyboard.current.spaceKey.wasPressedThisFrame)
         {
             if (jumpCount < maxJumpCount)
             {
                 rb.linearVelocity = new Vector2(
-                    rb.linearVelocity.x * 0.5f,
+                    rb.linearVelocity.x,
                     jumpPower
                 );
 
