@@ -208,4 +208,7 @@ MonoBehaviour:
   enemyLayer:
     serializedVersion: 2
     m_Bits: 8
+  ropeLayer:
+    serializedVersion: 2
+    m_Bits: 256
   damage: 1

@@ -9,7 +9,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     [SerializeField] private float cooldown = 0.3f;
     [SerializeField] private int damage = 1;
-
+    [SerializeField] private LayerMask ropeLayer; 
     private float nextAttackTime;
 
     void Awake()
@@ -36,6 +36,14 @@ public class PlayerAttack : MonoBehaviour
         {
             var enemy = h.GetComponent<Enemy>();
             if (enemy != null) enemy.TakeDamage(damage, player.Facing);
+        }
+
+        
+        var ropeHits = Physics2D.OverlapBoxAll(center, attackSize, 0f, ropeLayer);
+        foreach (var h in ropeHits)
+        {
+            var rope = h.GetComponentInParent<Rope>();
+            if (rope != null) rope.Cut();
         }
     }
 
