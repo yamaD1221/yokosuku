@@ -212,3 +212,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   damage: 1
+  blockLayer:
+    serializedVersion: 2
+    m_Bits: 512

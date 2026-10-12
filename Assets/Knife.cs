@@ -10,6 +10,7 @@ public class Knife : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     [SerializeField] private LayerMask ropeLayer;
     [SerializeField] private int damage = 1;
+    [SerializeField] private LayerMask blockLayer;
 
     private Rigidbody2D rb;
     private Collider2D col;
@@ -26,7 +27,7 @@ public class Knife : MonoBehaviour
         var box = GetComponent<BoxCollider2D>();
         col = box;
         halfLength = box.size.x * Mathf.Abs(transform.localScale.x) * 0.5f;
-        hitMask = stickLayer.value | enemyLayer.value | ropeLayer.value;
+        hitMask = stickLayer.value | enemyLayer.value | ropeLayer.value | blockLayer.value;
     }
 
     public void Launch(int direction, Vector2 castOrigin)
@@ -84,6 +85,14 @@ public class Knife : MonoBehaviour
             var enemy = hit.collider.GetComponentInParent<Enemy>();
             if (enemy != null) enemy.TakeDamage(damage, dir);
             Destroy(gameObject);
+        }
+        else if ((blockLayer.value & bit) != 0)
+        {
+            // éhÇ≥ÇÁÇ»Ç¢ï«:íµÇÀï‘Ç¡ÇƒóéÇøÇƒè¡Ç¶ÇÈ
+            finished = true;
+            rb.gravityScale = 3f;
+            rb.linearVelocity = new Vector2(-dir * 4f, 5f);
+            Destroy(gameObject, 0.5f);
         }
         else
         {

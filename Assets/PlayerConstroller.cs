@@ -22,6 +22,8 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+
+        if (LevelEditor.IsEditing) return;
         float x = 0;
 
         if (Keyboard.current.aKey.isPressed)
@@ -60,7 +62,11 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
-
+    public void ResetState()
+    {
+        jumpCount = 0;
+        Facing = 1;
+    }
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Ground"))

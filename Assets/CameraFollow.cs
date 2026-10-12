@@ -7,6 +7,7 @@ public class CameraFollow : MonoBehaviour
 
     void LateUpdate()
     {
+        if (LevelEditor.IsEditing) return;
         Vector3 target = new Vector3(player.position.x, player.position.y, transform.position.z);
         transform.position = Vector3.Lerp(transform.position, target, smooth * Time.deltaTime);
     }

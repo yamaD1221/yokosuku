@@ -20,6 +20,7 @@ public class PlayerKnifeThrow : MonoBehaviour
 
     void Update()
     {
+        if (LevelEditor.IsEditing) return;
         if (Mouse.current.rightButton.wasPressedThisFrame && Time.time >= nextThrowTime)
         {
             nextThrowTime = Time.time + cooldown;

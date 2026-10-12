@@ -19,6 +19,9 @@ public class PlayerAttack : MonoBehaviour
 
     void Update()
     {
+        if (LevelEditor.IsEditing) return;
+
+
         if (Mouse.current.leftButton.wasPressedThisFrame && Time.time >= nextAttackTime)
         {
             nextAttackTime = Time.time + cooldown;

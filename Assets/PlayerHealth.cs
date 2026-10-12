@@ -57,8 +57,19 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    public void ResetState()
+    {
+        CancelInvoke();
+        dead = false;
+        hp = maxHp;
+        invincibleUntil = 0f;
+        stunUntil = 0f;
+        OnHealthChanged?.Invoke(hp, maxHp);
+    }
+
     void Restart()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        if (LevelEditor.Instance != null) LevelEditor.Instance.RestartPlay();
+        else SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
