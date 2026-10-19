@@ -51,6 +51,7 @@ public class PlayerHealth : MonoBehaviour
 
         if (hp <= 0)
         {
+            RunRecorder.PlayerDied();
             dead = true;
             stunUntil = float.MaxValue;     // Ž€–SŒã‚Í‘€ì‚Å‚«‚È‚¢
             Invoke(nameof(Restart), 1f);

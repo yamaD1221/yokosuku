@@ -125,6 +125,7 @@ public class LevelEditor : MonoBehaviour
     void EnterPlay()
     {
         TakeSnapshot();
+        RunRecorder.StartRun();
         Select(null);
         HideFrame();
         ApplyMode(false);

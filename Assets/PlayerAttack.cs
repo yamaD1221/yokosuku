@@ -31,6 +31,8 @@ public class PlayerAttack : MonoBehaviour
 
     void Attack()
     {
+
+        RunRecorder.MeleeUsed();
         Vector2 center = (Vector2)transform.position
             + new Vector2(attackOffset.x * player.Facing, attackOffset.y);
 
@@ -43,6 +45,7 @@ public class PlayerAttack : MonoBehaviour
 
         
         var ropeHits = Physics2D.OverlapBoxAll(center, attackSize, 0f, ropeLayer);
+        Debug.Log($"ÉçÅ[ÉvîªíË: ropeLayer={ropeLayer.value}, ìñÇΩÇ¡ÇΩêî={ropeHits.Length}");
         foreach (var h in ropeHits)
         {
             var rope = h.GetComponentInParent<Rope>();
