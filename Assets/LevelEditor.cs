@@ -10,6 +10,7 @@ public class LevelEditor : MonoBehaviour
     public static LevelEditor Instance { get; private set; }
     public static bool IsEditing { get; private set; }
     public static event Action<bool> EditingChanged;
+    public int PlacedObjectCount => levelRoot != null ? levelRoot.childCount : 0;
 
     [Serializable]
     public class Item
@@ -125,7 +126,7 @@ public class LevelEditor : MonoBehaviour
     void EnterPlay()
     {
         TakeSnapshot();
-        RunRecorder.StartRun();
+        RunRecorder.StartRun(snapshot.Count);
         Select(null);
         HideFrame();
         ApplyMode(false);
@@ -232,6 +233,9 @@ public class LevelEditor : MonoBehaviour
         if (health != null) health.ResetState();
         var controller = player.GetComponent<PlayerController>();
         if (controller != null) controller.ResetState();
+
+        var tracker = player.GetComponent<PlayerLandingTracker>();
+        if (tracker != null) tracker.ResetTracking();
 
         Physics2D.SyncTransforms();
     }

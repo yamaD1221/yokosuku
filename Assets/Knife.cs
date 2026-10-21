@@ -11,10 +11,14 @@ public class Knife : MonoBehaviour
     [SerializeField] private LayerMask ropeLayer;
     [SerializeField] private int damage = 1;
     [SerializeField] private LayerMask blockLayer;
+    [SerializeField] private float stuckLifetime = 5f;     // 刺さってから消えるまでの秒数
+    [SerializeField] private float blinkDuration = 1f;     // 消える直前に、点滅する秒数
 
     private Rigidbody2D rb;
     private Collider2D col;
     private bool stuck;
+    private float stuckAt;
+    private SpriteRenderer sr;
     private bool finished;      // 敵やロープに当たって役目を終えた
     private int dir = 1;
     private float deadline;
@@ -23,6 +27,7 @@ public class Knife : MonoBehaviour
 
     void Awake()
     {
+        sr = GetComponentInChildren<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
         var box = GetComponent<BoxCollider2D>();
         col = box;
@@ -53,7 +58,25 @@ public class Knife : MonoBehaviour
 
     void Update()
     {
-        if (!stuck && !finished && Time.time > deadline) Destroy(gameObject);
+        if (!stuck && !finished && Time.time > deadline)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        if (!stuck) return;
+
+        // 刺さってからの時間で、消える
+        float remaining = stuckLifetime - (Time.time - stuckAt);
+        if (remaining <= 0f)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // 消える直前は、点滅して知らせる(この間も、足場として使える)
+        if (sr != null && remaining <= blinkDuration)
+            sr.enabled = ((int)(Time.time * 12f)) % 2 == 0;
     }
 
     void FixedUpdate()
@@ -112,6 +135,7 @@ public class Knife : MonoBehaviour
     void Stick()
     {
         stuck = true;
+        stuckAt = Time.time;
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Static;
         col.isTrigger = false;
