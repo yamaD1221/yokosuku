@@ -23,7 +23,7 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
 
-        if (LevelEditor.IsEditing) return;
+        if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
         float x = 0;
 
         if (Keyboard.current.aKey.isPressed)

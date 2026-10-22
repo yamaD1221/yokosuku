@@ -70,7 +70,8 @@ public class PlayerHealth : MonoBehaviour
 
     void Restart()
     {
-        if (LevelEditor.Instance != null) LevelEditor.Instance.RestartPlay();
+        if (RunController.Instance != null) RunController.Instance.EndRun(false);
+        else if (LevelEditor.Instance != null) LevelEditor.Instance.RestartPlay();
         else SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

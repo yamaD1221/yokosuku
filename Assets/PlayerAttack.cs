@@ -19,7 +19,7 @@ public class PlayerAttack : MonoBehaviour
 
     void Update()
     {
-        if (LevelEditor.IsEditing) return;
+        if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
 
 
         if (Mouse.current.leftButton.wasPressedThisFrame && Time.time >= nextAttackTime)
@@ -45,7 +45,6 @@ public class PlayerAttack : MonoBehaviour
 
         
         var ropeHits = Physics2D.OverlapBoxAll(center, attackSize, 0f, ropeLayer);
-        Debug.Log($"ÉçÅ[ÉvîªíË: ropeLayer={ropeLayer.value}, ìñÇΩÇ¡ÇΩêî={ropeHits.Length}");
         foreach (var h in ropeHits)
         {
             var rope = h.GetComponentInParent<Rope>();

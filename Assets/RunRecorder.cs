@@ -17,6 +17,7 @@ public class RunRecorder : MonoBehaviour
     public ChallengeRule StarTwoRule { get; private set; }     // 全お題で共通: 残りHP
     public ChallengeRule StarThreeRule { get; private set; }   // お題ごとにランダムな1つ(以後は固定)
     public bool HasRules => StarOneRule != null || StarTwoRule != null || StarThreeRule != null;
+    public bool RunEnded { get; private set; }
 
     private const int RuleTypeCount = 5;
     private int starThreeIndex = -1;
@@ -53,7 +54,7 @@ public class RunRecorder : MonoBehaviour
             var kb = Keyboard.current;
             if (allowDebugReroll && kb != null && kb.f2Key.wasPressedThisFrame) RerollStarThree();
         }
-        else
+        else if (!RunEnded)
         {
             Stats.ElapsedTime += Time.deltaTime;
         }
@@ -96,21 +97,27 @@ public class RunRecorder : MonoBehaviour
         Stats.MaxHp = health.MaxHp;
     }
 
-    // ---- 呼び出し口(記録の担当がいなくても、呼び出し側は壊れない) ----
+    // ---- 挑戦の開始と終了 ----
     public static void StartRun(int placedCount)
     {
         if (Instance == null) return;
         Instance.Stats.Reset();
+        Instance.RunEnded = false;
         Instance.Stats.PlacedCount = placedCount;
         Instance.SyncHealth();
         RunStarted?.Invoke();
     }
+
+    public void FinishRun() { RunEnded = true; }                 // 記録を止める(結果画面を出すとき)
+    public void StartNewChallenge() { RerollStarThree(); }       // 新しいお題(今は、星3の引き直しだけ)
+
+    // ---- 呼び出し口(記録の担当がいなくても、呼び出し側は壊れない) ----
     public static void KnifeThrown() { if (Counting) Instance.Stats.KnifeThrown++; }
     public static void MeleeUsed() { if (Counting) Instance.Stats.MeleeCount++; }
     public static void Landed() { if (Counting) Instance.Stats.Landings++; }
     public static void PlayerDied() { if (Counting) Instance.Stats.Deaths++; }
 
-    static bool Counting => Instance != null && !LevelEditor.IsEditing;
+    static bool Counting => Instance != null && !LevelEditor.IsEditing && !Instance.RunEnded;
 
     // HUD用: 星1・星2・星3の条件(外れたら赤)。編集中は、星3を金色にして目立たせる
     public string BuildConstraintText()

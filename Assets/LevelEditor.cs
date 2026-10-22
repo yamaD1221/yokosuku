@@ -11,6 +11,7 @@ public class LevelEditor : MonoBehaviour
     public static bool IsEditing { get; private set; }
     public static event Action<bool> EditingChanged;
     public int PlacedObjectCount => levelRoot != null ? levelRoot.childCount : 0;
+    public void ReturnToEdit() { ExitToEdit(); }
 
     [Serializable]
     public class Item
@@ -238,6 +239,15 @@ public class LevelEditor : MonoBehaviour
         if (tracker != null) tracker.ResetTracking();
 
         Physics2D.SyncTransforms();
+    }
+
+    // 置いた物を全部消す(新しいお題へ進むときに使う)
+    public void ClearAllPlaced()
+    {
+        snapshot.Clear();
+        if (levelRoot == null) return;
+        for (int i = levelRoot.childCount - 1; i >= 0; i--)
+            Destroy(levelRoot.GetChild(i).gameObject);
     }
 
     // ---------- キー操作 ----------
