@@ -37,7 +37,14 @@ public class GameHud : MonoBehaviour
         var rec = RunRecorder.Instance;
         bool hasRules = rec != null && rec.HasRules;
         constraintPanel.SetActive(hasRules);
-        if (hasRules) constraintText.text = rec.BuildConstraintText();
+        if (hasRules)
+        {
+            constraintText.text = rec.BuildConstraintText().TrimEnd();
+
+            // •¶š‚Ì‘å‚«‚³‚É‡‚í‚¹‚ÄA˜g‚Ì‘å‚«‚³‚ğŒˆ‚ß‚é(—]”’‚ğ‹l‚ß‚é)
+            var prt = (RectTransform)constraintPanel.transform;
+            prt.sizeDelta = new Vector2(constraintText.preferredWidth + 28f, constraintText.preferredHeight + 28f);
+        }
     }
 
     // ---------- ‰æ–Ê‚Ì•”•i‚ğì‚é ----------
@@ -61,17 +68,17 @@ public class GameHud : MonoBehaviour
     void BuildModeBanner()
     {
         var rt = MakePanel("ModeBanner", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -16f), new Vector2(900f, 64f), EditColor);
+            new Vector2(0f, -16f), new Vector2(560f, 56f), EditColor);
         modeBg = rt.GetComponent<Image>();
 
-        modeText = MakeText(rt, "Text", 34, TextAnchor.MiddleCenter, Color.white);
+        modeText = MakeText(rt, "Text", 30, TextAnchor.MiddleCenter, Color.white);
         Stretch(modeText.rectTransform, 0f);
     }
 
     void BuildConstraintPanel()
     {
         var rt = MakePanel("ConstraintPanel", new Vector2(1f, 1f), new Vector2(1f, 1f),
-            new Vector2(-16f, -16f), new Vector2(780f, 190f), PanelColor);
+            new Vector2(-16f, -16f), new Vector2(780f, 230f), PanelColor);
         constraintPanel = rt.gameObject;
 
         constraintText = MakeText(rt, "Text", 28, TextAnchor.UpperLeft, Color.white);

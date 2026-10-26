@@ -10,7 +10,15 @@ public class LevelEditor : MonoBehaviour
     public static LevelEditor Instance { get; private set; }
     public static bool IsEditing { get; private set; }
     public static event Action<bool> EditingChanged;
-    public int PlacedObjectCount => levelRoot != null ? levelRoot.childCount : 0;
+    public int PlacedObjectCount
+    {
+        get
+        {
+            int n = 0;
+            foreach (var root in Roots()) n += root.childCount;
+            return n;
+        }
+    }
     public void ReturnToEdit() { ExitToEdit(); }
 
     [Serializable]
@@ -27,11 +35,13 @@ public class LevelEditor : MonoBehaviour
     [SerializeField] private List<Item> items = new List<Item>();
     [SerializeField] private GameObject player;          // 空なら Player タグから探す
     [SerializeField] private Transform levelRoot;
+    [SerializeField] private Transform dynamicRoot;     // 動く物(敵など)の親。箱の外に置く。空なら levelRoot を使う
     [SerializeField] private Material lineMaterial;
     [SerializeField] private float cameraPanSpeed = 12f;
     [SerializeField] private float moveSnap = 0.5f;
     [SerializeField] private float rotateStep = 15f;
     [SerializeField] private float minSize = 0.25f;
+    [SerializeField] private float editHalfRange = 4f;     // 箱がある場合に、置ける範囲(中心からの距離)
 
     private enum DragMode { None, Move, Resize }
 
@@ -138,9 +148,10 @@ public class LevelEditor : MonoBehaviour
         StopAllCoroutines();
         cleared = false;
         showClear = false;
+        ResetArena();                      // 復元の前に、箱の回転を戻す
         RestoreLevel();
         ResetPlayer();
-        if (player != null && cam != null)
+        if (player != null && cam != null && ArenaRotator.Instance == null)   // 箱があるときは、カメラを動かさない
             cam.transform.position = new Vector3(playerStartPos.x, playerStartPos.y, cam.transform.position.z);
         ApplyMode(true);
     }
@@ -151,6 +162,7 @@ public class LevelEditor : MonoBehaviour
         StopAllCoroutines();
         cleared = false;
         showClear = false;
+        ResetArena();
         RestoreLevel();
         ResetPlayer();
         ApplyMode(false);
@@ -175,9 +187,9 @@ public class LevelEditor : MonoBehaviour
     void TakeSnapshot()
     {
         snapshot.Clear();
-        if (levelRoot != null)
+        foreach (var root in Roots())
         {
-            foreach (Transform child in levelRoot)
+            foreach (Transform child in root)
             {
                 var lo = child.GetComponent<LevelObject>();
                 if (lo == null) continue;
@@ -201,21 +213,43 @@ public class LevelEditor : MonoBehaviour
     {
         if (levelRoot == null) return;
 
-        for (int i = levelRoot.childCount - 1; i >= 0; i--)
-            Destroy(levelRoot.GetChild(i).gameObject);
+        foreach (var root in Roots())
+            for (int i = root.childCount - 1; i >= 0; i--)
+                Destroy(root.GetChild(i).gameObject);
 
-        // 投げたナイフ(親なしで生成されたもの)も消す
+        // 投げたナイフも消す(箱の子になったものも含む)
         foreach (var k in FindObjectsByType<Knife>(FindObjectsSortMode.None))
             Destroy(k.gameObject);
 
         foreach (var d in snapshot)
         {
             if (d.itemIndex < 0 || d.itemIndex >= items.Count || items[d.itemIndex].prefab == null) continue;
-            var go = Instantiate(items[d.itemIndex].prefab, d.position, d.rotation, levelRoot);
+            var prefab = items[d.itemIndex].prefab;
+            var go = Instantiate(prefab, d.position, d.rotation, RootFor(prefab));
             go.transform.localScale = d.scale;
             go.AddComponent<LevelObject>().itemIndex = d.itemIndex;
         }
         Physics2D.SyncTransforms();
+    }
+
+    // 置いた物の親を、すべて返す
+    IEnumerable<Transform> Roots()
+    {
+        if (levelRoot != null) yield return levelRoot;
+        if (dynamicRoot != null && dynamicRoot != levelRoot) yield return dynamicRoot;
+    }
+
+    // 動く物(Dynamic の剛体を持つ物)は、回転する箱の外の親に置く
+    Transform RootFor(GameObject prefab)
+    {
+        if (dynamicRoot == null || prefab == null) return levelRoot;
+        var body = prefab.GetComponent<Rigidbody2D>();
+        return (body != null && body.bodyType == RigidbodyType2D.Dynamic) ? dynamicRoot : levelRoot;
+    }
+
+    void ResetArena()
+    {
+        if (ArenaRotator.Instance != null) ArenaRotator.Instance.ResetRotation();
     }
 
     void ResetPlayer()
@@ -238,6 +272,9 @@ public class LevelEditor : MonoBehaviour
         var tracker = player.GetComponent<PlayerLandingTracker>();
         if (tracker != null) tracker.ResetTracking();
 
+        if (ArenaRotator.Instance != null) ArenaRotator.Instance.ResetRotation();    // 箱の向きを戻す
+        if (FrameBoss.Instance != null) FrameBoss.Instance.ResetState();             // ボスを初期状態へ
+
         Physics2D.SyncTransforms();
     }
 
@@ -245,9 +282,43 @@ public class LevelEditor : MonoBehaviour
     public void ClearAllPlaced()
     {
         snapshot.Clear();
-        if (levelRoot == null) return;
-        for (int i = levelRoot.childCount - 1; i >= 0; i--)
-            Destroy(levelRoot.GetChild(i).gameObject);
+        foreach (var root in Roots())
+            for (int i = root.childCount - 1; i >= 0; i--)
+                Destroy(root.GetChild(i).gameObject);
+    }
+
+    // 置いた物が、箱の内側からはみ出さないように、位置を直す(箱がないシーンでは、何もしない)
+    void ClampInside(LevelObject lo)
+    {
+        var arena = ArenaRotator.Instance;
+        if (arena == null || lo == null) return;
+
+        Rect inner = arena.InnerBounds;
+        Bounds b = WorldBounds(lo);
+        Vector3 shift = Vector3.zero;
+
+        if (b.min.x < inner.xMin) shift.x = inner.xMin - b.min.x;
+        else if (b.max.x > inner.xMax) shift.x = inner.xMax - b.max.x;
+        if (b.min.y < inner.yMin) shift.y = inner.yMin - b.min.y;
+        else if (b.max.y > inner.yMax) shift.y = inner.yMax - b.max.y;
+
+        if (shift != Vector3.zero)
+        {
+            lo.transform.position += shift;
+            Physics2D.SyncTransforms();
+        }
+    }
+
+    // 物の外形(回転も考えた、画面に平行な四角)
+    Bounds WorldBounds(LevelObject lo)
+    {
+        GetLocalRect(lo, out var c, out var h);
+        var t = lo.transform;
+        var b = new Bounds(t.TransformPoint(c + new Vector2(-h.x, -h.y)), Vector3.zero);
+        b.Encapsulate(t.TransformPoint(c + new Vector2(h.x, -h.y)));
+        b.Encapsulate(t.TransformPoint(c + new Vector2(h.x, h.y)));
+        b.Encapsulate(t.TransformPoint(c + new Vector2(-h.x, h.y)));
+        return b;
     }
 
     // ---------- キー操作 ----------
@@ -263,7 +334,8 @@ public class LevelEditor : MonoBehaviour
         if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) move.x += 1;
         if (kb.sKey.isPressed || kb.downArrowKey.isPressed) move.y -= 1;
         if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1;
-        cam.transform.position += (Vector3)(move * cameraPanSpeed * Time.unscaledDeltaTime);
+        if (ArenaRotator.Instance == null)      // 箱のあるシーンでは、カメラは固定
+            cam.transform.position += (Vector3)(move * cameraPanSpeed * Time.unscaledDeltaTime);
 
         if (kb.gKey.wasPressedThisFrame) snap = !snap;
         if (kb.escapeKey.wasPressedThisFrame) Select(null);
@@ -474,6 +546,12 @@ public class LevelEditor : MonoBehaviour
 
     Vector3 ToPos(Vector2 p)
     {
+        if (ArenaRotator.Instance != null)       // 箱がないシーンでは、これまでどおり
+        {
+            Vector2 c = ArenaRotator.Instance.transform.position;
+            p.x = Mathf.Clamp(p.x, c.x - editHalfRange, c.x + editHalfRange);
+            p.y = Mathf.Clamp(p.y, c.y - editHalfRange, c.y + editHalfRange);
+        }
         if (snap)
         {
             p.x = Mathf.Round(p.x / moveSnap) * moveSnap;
@@ -490,7 +568,7 @@ public class LevelEditor : MonoBehaviour
         if (item.isPlayer) return MovePlayer(world);     // プレイヤーは1人だけ。位置を動かす
         if (item.prefab == null) return null;
 
-        var go = Instantiate(item.prefab, ToPos(world), Quaternion.identity, levelRoot);
+        var go = Instantiate(item.prefab, ToPos(world), Quaternion.identity, RootFor(item.prefab));
         var lo = go.AddComponent<LevelObject>();
         lo.itemIndex = selectedItem;
         Physics2D.SyncTransforms();

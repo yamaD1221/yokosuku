@@ -16,7 +16,6 @@ public class PlayerHealth : MonoBehaviour
     private SpriteRenderer sr;
 
     public bool IsStunned => Time.time < stunUntil;
-
     public int Hp => hp;
     public int MaxHp => maxHp;
     public event System.Action<int, int> OnHealthChanged;   // (Œ»İ‚Ì‘Ì—Í, Å‘å‘Ì—Í)
@@ -45,15 +44,16 @@ public class PlayerHealth : MonoBehaviour
         hp -= damage;
         OnHealthChanged?.Invoke(Mathf.Max(hp, 0), maxHp);
         Debug.Log($"Player HP: {hp}/{maxHp}");
+
         invincibleUntil = Time.time + invincibleTime;
         stunUntil = Time.time + stunTime;
         rb.linearVelocity = new Vector2(fromDir * knockback.x, knockback.y);
 
         if (hp <= 0)
         {
-            RunRecorder.PlayerDied();
             dead = true;
             stunUntil = float.MaxValue;     // €–SŒã‚Í‘€ì‚Å‚«‚È‚¢
+            RunRecorder.PlayerDied();
             Invoke(nameof(Restart), 1f);
         }
     }
@@ -68,6 +68,7 @@ public class PlayerHealth : MonoBehaviour
         OnHealthChanged?.Invoke(hp, maxHp);
     }
 
+    // €–SŒã: Œ‹‰Ê‰æ–Ê‚ğo‚·
     void Restart()
     {
         if (RunController.Instance != null) RunController.Instance.EndRun(false);

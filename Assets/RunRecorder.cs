@@ -124,6 +124,7 @@ public class RunRecorder : MonoBehaviour
     {
         bool editing = LevelEditor.IsEditing;
         var sb = new StringBuilder();
+        sb.AppendLine("ボス: フレーム   (突進 / 回転)");
         AppendRule(sb, "★1 共通", StarOneRule, "#ffffff");
         AppendRule(sb, "★2 共通", StarTwoRule, "#ffffff");
         AppendRule(sb, "★3 今回", StarThreeRule, editing ? "#ffd54a" : "#ffffff");

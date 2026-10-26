@@ -207,7 +207,7 @@ MonoBehaviour:
     m_Bits: 64
   enemyLayer:
     serializedVersion: 2
-    m_Bits: 8
+    m_Bits: 2056
   ropeLayer:
     serializedVersion: 2
     m_Bits: 256
@@ -215,3 +215,5 @@ MonoBehaviour:
   blockLayer:
     serializedVersion: 2
     m_Bits: 512
+  stuckLifetime: 5
+  blinkDuration: 1

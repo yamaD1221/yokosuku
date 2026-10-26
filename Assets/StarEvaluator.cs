@@ -1,10 +1,10 @@
-// ¯‚ÌŒvZŒ‹‰Ê
+ï»¿// æ˜Ÿã®è¨ˆç®—çµæœ
 public readonly struct StarResult
 {
-    public readonly int Stars;       // 0?3
-    public readonly bool StarOne;    // ¯1‚ÌğŒ(ƒ{ƒX‚ğ“|‚· + €‚È‚È‚¢)‚ğ–‚½‚µ‚½‚©
-    public readonly bool StarTwo;    // ¯2‚ÌğŒ‚ğ–‚½‚µ‚½‚©
-    public readonly bool StarThree;  // ¯3‚ÌğŒ‚ğ–‚½‚µ‚½‚©
+    public readonly int Stars;       // 0ã€œ3
+    public readonly bool StarOne;    // æ˜Ÿ1ã®æ¡ä»¶(ãƒœã‚¹ã‚’å€’ã™ + æ­»ãªãªã„)ã‚’æº€ãŸã—ãŸã‹
+    public readonly bool StarTwo;    // æ˜Ÿ2ã®æ¡ä»¶ã‚’æº€ãŸã—ãŸã‹
+    public readonly bool StarThree;  // æ˜Ÿ3ã®æ¡ä»¶ã‚’æº€ãŸã—ãŸã‹
 
     public StarResult(int stars, bool one, bool two, bool three)
     {
@@ -15,10 +15,10 @@ public readonly struct StarResult
     }
 }
 
-// ¯‚ÌŒvZ(‹L˜^‚Æƒ‹[ƒ‹‚¾‚¯‚ğ“ü—Í‚É‚·‚éƒˆ‚ÈŠÖ”)
+// æ˜Ÿã®è¨ˆç®—(è¨˜éŒ²ã¨ãƒ«ãƒ¼ãƒ«ã ã‘ã‚’å…¥åŠ›ã«ã™ã‚‹ç´”ç²‹ãªé–¢æ•°)
 public static class StarEvaluator
 {
-    // ¯‚ÍÏ‚İã‚°®: ¯1‚ğ–‚½‚³‚È‚¯‚ê‚ÎA¯2E3‚ÌğŒ‚ğ–‚½‚µ‚Ä‚àA¯‚Í0
+    // æ˜Ÿã¯ç©ã¿ä¸Šã’å¼: æ˜Ÿ1ã‚’æº€ãŸã•ãªã‘ã‚Œã°ã€æ˜Ÿ2ãƒ»3ã®æ¡ä»¶ã‚’æº€ãŸã—ã¦ã‚‚ã€æ˜Ÿã¯0
     public static StarResult Evaluate(bool bossDefeated, RunStats s,
         ChallengeRule one, ChallengeRule two, ChallengeRule three)
     {

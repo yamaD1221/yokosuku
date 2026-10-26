@@ -9,7 +9,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     [SerializeField] private float cooldown = 0.3f;
     [SerializeField] private int damage = 1;
-    [SerializeField] private LayerMask ropeLayer; 
+    [SerializeField] private LayerMask ropeLayer;
     private float nextAttackTime;
 
     void Awake()
@@ -21,7 +21,6 @@ public class PlayerAttack : MonoBehaviour
     {
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
 
-
         if (Mouse.current.leftButton.wasPressedThisFrame && Time.time >= nextAttackTime)
         {
             nextAttackTime = Time.time + cooldown;
@@ -31,8 +30,8 @@ public class PlayerAttack : MonoBehaviour
 
     void Attack()
     {
-
         RunRecorder.MeleeUsed();
+
         Vector2 center = (Vector2)transform.position
             + new Vector2(attackOffset.x * player.Facing, attackOffset.y);
 
@@ -40,10 +39,12 @@ public class PlayerAttack : MonoBehaviour
         foreach (var h in hits)
         {
             var enemy = h.GetComponent<Enemy>();
-            if (enemy != null) enemy.TakeDamage(damage, player.Facing);
+            if (enemy != null) { enemy.TakeDamage(damage, player.Facing); continue; }
+
+            var target = h.GetComponentInParent<IDamageable>();     // É{ÉXÇ»Ç«
+            if (target != null) target.TakeDamage(damage, player.Facing);
         }
 
-        
         var ropeHits = Physics2D.OverlapBoxAll(center, attackSize, 0f, ropeLayer);
         foreach (var h in ropeHits)
         {

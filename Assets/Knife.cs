@@ -106,7 +106,15 @@ public class Knife : MonoBehaviour
         {
             finished = true;
             var enemy = hit.collider.GetComponentInParent<Enemy>();
-            if (enemy != null) enemy.TakeDamage(damage, dir);
+            if (enemy != null)
+            {
+                enemy.TakeDamage(damage, dir);
+            }
+            else
+            {
+                var target = hit.collider.GetComponentInParent<IDamageable>();     // ボスなど
+                if (target != null) target.TakeDamage(damage, dir);
+            }
             Destroy(gameObject);
         }
         else if ((blockLayer.value & bit) != 0)
@@ -137,8 +145,20 @@ public class Knife : MonoBehaviour
         stuck = true;
         stuckAt = Time.time;
         rb.linearVelocity = Vector2.zero;
-        rb.bodyType = RigidbodyType2D.Static;
         col.isTrigger = false;
         col.usedByEffector = true;
+
+        var arena = ArenaRotator.Instance;
+        if (arena != null)
+        {
+            // 箱の壁と一緒に動くよう、箱の子にして、ナイフ自身の剛体は外す
+            // (コライダーが、箱の剛体の一部になる)
+            transform.SetParent(arena.transform, true);
+            Destroy(rb);
+        }
+        else
+        {
+            rb.bodyType = RigidbodyType2D.Static;     // 箱がないシーンでは、これまでどおり
+        }
     }
 }

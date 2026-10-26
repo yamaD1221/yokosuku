@@ -10,7 +10,7 @@ public abstract class ChallengeRule
 }
 
 // ---- 星1(全お題で共通): 死なずに倒す ----
-// 「ボスを倒す」の部分は、ボス(ステップ5)ができたときに判定します。ここでは「死なない」を見ます
+// 「ボスを倒す」の部分は、撃破の処理で判定する。ここでは「死なない」を見る
 public class SurviveRule : ChallengeRule
 {
     public override string Title => "死なずにボスを倒す";

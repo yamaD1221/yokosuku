@@ -10,7 +10,6 @@ public class PlayerKnifeThrow : MonoBehaviour
     [SerializeField] private float cooldown = 0.4f;
     [SerializeField] private int maxKnives = 4;
 
-
     private float nextThrowTime;
     private readonly List<Knife> thrown = new List<Knife>();
 
@@ -22,6 +21,7 @@ public class PlayerKnifeThrow : MonoBehaviour
     void Update()
     {
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
+
         if (Mouse.current.rightButton.wasPressedThisFrame && Time.time >= nextThrowTime)
         {
             nextThrowTime = Time.time + cooldown;
@@ -31,7 +31,6 @@ public class PlayerKnifeThrow : MonoBehaviour
 
     void Throw()
     {
-
         RunRecorder.KnifeThrown();
 
         Vector2 pos = (Vector2)transform.position

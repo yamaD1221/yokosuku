@@ -22,21 +22,18 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
-        float x = 0;
 
-        if (Keyboard.current.aKey.isPressed)
-        {
-            x = -1;
-        }
+        // 画面上の入力(A/D=左右、W/S=上下)を、箱の向きに合わせて、箱の中の左右の移動に読み替える
+        Vector2 screenInput = new Vector2(
+            (Keyboard.current.dKey.isPressed ? 1f : 0f) - (Keyboard.current.aKey.isPressed ? 1f : 0f),
+            (Keyboard.current.wKey.isPressed ? 1f : 0f) - (Keyboard.current.sKey.isPressed ? 1f : 0f));
 
-        if (Keyboard.current.dKey.isPressed)
-        {
-            x = 1;
-        }
+        float x = ArenaRotator.Instance != null
+            ? Mathf.Clamp(ArenaRotator.Instance.ScreenToLocal(screenInput).x, -1f, 1f)
+            : screenInput.x;
 
-        if (x != 0) Facing = (int)x;
+        if (Mathf.Abs(x) > 0.1f) Facing = x > 0f ? 1 : -1;
 
         bool stunned = health != null && health.IsStunned;
 
@@ -62,11 +59,13 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
+
     public void ResetState()
     {
         jumpCount = 0;
         Facing = 1;
     }
+
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Ground"))
