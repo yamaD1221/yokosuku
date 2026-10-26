@@ -154,7 +154,9 @@ public class Knife : MonoBehaviour
             // 箱の壁と一緒に動くよう、箱の子にして、ナイフ自身の剛体は外す
             // (コライダーが、箱の剛体の一部になる)
             transform.SetParent(arena.transform, true);
-            Destroy(rb);
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            rb.bodyType = RigidbodyType2D.Kinematic;
         }
         else
         {

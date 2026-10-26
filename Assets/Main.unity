@@ -256,7 +256,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &221892981
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -281,7 +281,7 @@ MonoBehaviour:
   chargeSpeed: 22
   contactDamage: 1
   shootTelegraph: 0.4
-  shotCount: 3
+  shotCount: 6
   shotInterval: 0.12
   bulletSpeed: 14
   bulletDamage: 1
@@ -796,7 +796,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 536a5f3afe0c8de4ab0298eb969243f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArenaRotator
-  innerSize: 16
+  innerSize: 30
   wallThickness: 0.5
   floorWall: {fileID: 0}
   ceilingWall: {fileID: 0}
@@ -1440,6 +1440,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 1763367421921166501, guid: c6572a4c579fd2b4e9db5f8643235aa9, type: 3}
+      propertyPath: moveSpeed
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 6991432919474675066, guid: c6572a4c579fd2b4e9db5f8643235aa9, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2363.437
@@ -1834,7 +1838,6 @@ MonoBehaviour:
   moveSnap: 0.5
   rotateStep: 15
   minSize: 0.25
-  editHalfRange: 4
 --- !u!4 &2048306604
 Transform:
   m_ObjectHideFlags: 0

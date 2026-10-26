@@ -41,7 +41,7 @@ public class LevelEditor : MonoBehaviour
     [SerializeField] private float moveSnap = 0.5f;
     [SerializeField] private float rotateStep = 15f;
     [SerializeField] private float minSize = 0.25f;
-    [SerializeField] private float editHalfRange = 4f;     // 箱がある場合に、置ける範囲(中心からの距離)
+    //[SerializeField] private float editHalfRange = 4f;     // 箱がある場合に、置ける範囲(中心からの距離)
 
     private enum DragMode { None, Move, Resize }
 
@@ -544,21 +544,28 @@ public class LevelEditor : MonoBehaviour
         selectedItem = (index + items.Count) % items.Count;
     }
 
+
     Vector3 ToPos(Vector2 p)
     {
-        if (ArenaRotator.Instance != null)       // 箱がないシーンでは、これまでどおり
+        if (ArenaRotator.Instance != null)
         {
-            Vector2 c = ArenaRotator.Instance.transform.position;
-            p.x = Mathf.Clamp(p.x, c.x - editHalfRange, c.x + editHalfRange);
-            p.y = Mathf.Clamp(p.y, c.y - editHalfRange, c.y + editHalfRange);
+            // 箱の内側の範囲を取得
+            Rect inner = ArenaRotator.Instance.InnerBounds;
+
+            // 箱の内側に配置位置を制限
+            p.x = Mathf.Clamp(p.x, inner.xMin, inner.xMax);
+            p.y = Mathf.Clamp(p.y, inner.yMin, inner.yMax);
         }
+
         if (snap)
         {
             p.x = Mathf.Round(p.x / moveSnap) * moveSnap;
             p.y = Mathf.Round(p.y / moveSnap) * moveSnap;
         }
+
         return new Vector3(p.x, p.y, 0f);
     }
+
 
     LevelObject Spawn(Vector2 world)
     {
