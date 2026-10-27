@@ -269,28 +269,33 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bcf7f0b4e415de24989227b3d99e7758, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FrameBoss
-  maxHp: 20
-  xRange: {x: -3, y: 3}
-  idleTime: 0.5
-  recoverTime: 0.3
-  chargeWeight: 4
-  shootWeight: 4
-  rotateWeight: 2
-  rotateCooldown: 3
-  chargeTelegraph: 0.5
-  chargeSpeed: 22
-  contactDamage: 1
-  shootTelegraph: 0.4
-  shotCount: 6
+  maxHp: 40
+  vulnerableMultiplier: 2
+  normalMultiplier: 0.5
+  idleTime: 2
+  moveTime: 0.4
+  farDistance: 9
+  rotateChance: 0.25
+  rotateCooldown: 8
+  slamTelegraph: 0.9
+  slamLockTime: 0.3
+  diveTime: 0.35
+  diveDamage: 1
+  downTimeAfterSlam: 3
+  waveSpeed: 25
+  waveRadius: 0.9
+  waveInset: 0.45
+  waveDamage: 1
+  shootTelegraph: 0.5
+  shotCount: 7
   shotInterval: 0.12
   bulletSpeed: 14
   bulletDamage: 1
+  downTimeAfterShoot: 2
   blockLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 576
   rotateTelegraph: 1.2
-  actDuringRotation: 1
-  rotateAfterDelay: 0.3
   defeatDelay: 0.8
   lineMaterial: {fileID: 0}
 --- !u!61 &221892982
