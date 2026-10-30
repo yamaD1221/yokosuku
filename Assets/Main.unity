@@ -782,6 +782,7 @@ GameObject:
   m_Component:
   - component: {fileID: 949205686}
   - component: {fileID: 949205685}
+  - component: {fileID: 949205687}
   m_Layer: 6
   m_Name: ArenaRoot
   m_TagString: Ground
@@ -829,6 +830,30 @@ Transform:
   - {fileID: 1083873122}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &949205687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 949205684}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7b5d53cc0b44c546977dd61b6c6a9b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ArenaObstacleGenerator
+  obstaclePrefabs:
+  - {fileID: 2627827192330867668, guid: 369d6ecd186239d42bfbacbb4eb49d1f, type: 3}
+  - {fileID: 2627827192330867668, guid: 4ab42433d9e76624ca773d033489f4f6, type: 3}
+  - {fileID: 2627827192330867668, guid: ee732931432a94547b2d60254883c397, type: 3}
+  obstacleCount: 12
+  innerSize: 30
+  edgeMargin: 1.3
+  centerKeepOutRadius: 2.2
+  minSpacing: 0.8
+  scaleXRange: {x: 1, y: 2.4}
+  scaleYRange: {x: 0.8, y: 1.8}
+  seed: 0
 --- !u!1 &958157068
 GameObject:
   m_ObjectHideFlags: 0
