@@ -32,10 +32,21 @@ public class PlayerAttack : MonoBehaviour
     {
         RunRecorder.MeleeUsed();
 
-        Vector2 center = (Vector2)transform.position
-            + new Vector2(attackOffset.x * player.Facing, attackOffset.y);
+        Vector2 direction = player.attackDirection;
 
-        var hits = Physics2D.OverlapBoxAll(center, attackSize, 0f, enemyLayer);
+        // 攻撃範囲をマウス方向へ移動
+        Vector2 center = (Vector2)transform.position
+            + direction * attackOffset.x;
+
+        // 攻撃範囲をマウス方向へ回転
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        var hits = Physics2D.OverlapBoxAll(
+            center,
+            attackSize,
+            angle,
+            enemyLayer
+        );
         foreach (var h in hits)
         {
             var enemy = h.GetComponent<Enemy>();
@@ -44,13 +55,12 @@ public class PlayerAttack : MonoBehaviour
             var target = h.GetComponentInParent<IDamageable>();     // ボスなど
             if (target != null) target.TakeDamage(damage, player.Facing);
         }
-
-        var ropeHits = Physics2D.OverlapBoxAll(center, attackSize, 0f, ropeLayer);
-        foreach (var h in ropeHits)
-        {
-            var rope = h.GetComponentInParent<Rope>();
-            if (rope != null) rope.Cut();
-        }
+        var ropeHits = Physics2D.OverlapBoxAll(
+            center,
+            attackSize,
+            angle,
+            ropeLayer
+        );
     }
 
     // シーンビューで攻撃範囲を確認するため

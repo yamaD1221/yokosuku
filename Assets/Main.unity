@@ -274,6 +274,7 @@ MonoBehaviour:
   normalMultiplier: 0.5
   idleTime: 2
   moveTime: 0.4
+  initialObjectSearchDistance: 4
   farDistance: 9
   rotateChance: 0.25
   rotateCooldown: 8
@@ -282,7 +283,7 @@ MonoBehaviour:
   diveTime: 0.35
   diveDamage: 1
   downTimeAfterSlam: 3
-  waveSpeed: 25
+  waveSpeed: 30
   waveRadius: 0.9
   waveInset: 0.45
   waveDamage: 1
@@ -846,13 +847,13 @@ MonoBehaviour:
   - {fileID: 2627827192330867668, guid: 369d6ecd186239d42bfbacbb4eb49d1f, type: 3}
   - {fileID: 2627827192330867668, guid: 4ab42433d9e76624ca773d033489f4f6, type: 3}
   - {fileID: 2627827192330867668, guid: ee732931432a94547b2d60254883c397, type: 3}
-  obstacleCount: 12
-  innerSize: 30
-  edgeMargin: 1.3
-  centerKeepOutRadius: 2.2
+  countPerSide: {x: 2, y: 4}
+  widthRange: {x: 2, y: 4.5}
+  depthRange: {x: 2, y: 5.5}
+  cornerMargin: 1
+  wallOverlap: 0.15
   minSpacing: 0.8
-  scaleXRange: {x: 1, y: 2.4}
-  scaleYRange: {x: 0.8, y: 1.8}
+  generateOnStart: 1
   seed: 0
 --- !u!1 &958157068
 GameObject:
@@ -1854,12 +1855,6 @@ MonoBehaviour:
     isPlayer: 1
     canRotate: 0
     canResize: 0
-  - id: goal
-    prefab: {fileID: 5302122527798985266, guid: 526b302ad422b494f9cd631ad9603e6f, type: 3}
-    icon: {fileID: 0}
-    isPlayer: 0
-    canRotate: 1
-    canResize: 1
   player: {fileID: 0}
   levelRoot: {fileID: 1083873122}
   dynamicRoot: {fileID: 0}

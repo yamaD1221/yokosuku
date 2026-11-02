@@ -20,10 +20,11 @@ public class Knife : MonoBehaviour
     private float stuckAt;
     private SpriteRenderer sr;
     private bool finished;      // 敵やロープに当たって役目を終えた
-    private int dir = 1;
+    private Vector2 dir = Vector2.right;
     private float deadline;
     private float halfLength;
     private int hitMask;
+    private PlatformEffector2D platformEffector;
 
     void Awake()
     {
@@ -33,18 +34,25 @@ public class Knife : MonoBehaviour
         col = box;
         halfLength = box.size.x * Mathf.Abs(transform.localScale.x) * 0.5f;
         hitMask = stickLayer.value | enemyLayer.value | ropeLayer.value | blockLayer.value;
+        platformEffector = GetComponent<PlatformEffector2D>();
     }
 
-    public void Launch(int direction, Vector2 castOrigin)
+    public void Launch(Vector2 direction, Vector2 castOrigin)
     {
-        dir = direction;
-        var s = transform.localScale;
-        s.x = Mathf.Abs(s.x) * dir;
-        transform.localScale = s;
+        dir = direction.normalized;
+
+        if (dir.sqrMagnitude < 0.001f)
+            dir = Vector2.right;
+
+        // ナイフの向きを飛ぶ方向に合わせる
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
 
         // 密着して投げたとき用:プレイヤー側から先端までを先に調べる
         float reach = Vector2.Distance(castOrigin, rb.position) + halfLength;
-        RaycastHit2D hit = Physics2D.Raycast(castOrigin, Vector2.right * dir, reach, hitMask);
+
+        RaycastHit2D hit = Physics2D.Raycast(castOrigin, dir, reach, hitMask);
+
         if (hit.collider != null)
         {
             Resolve(hit);
@@ -52,7 +60,7 @@ public class Knife : MonoBehaviour
         }
 
         rb.gravityScale = 0f;
-        rb.linearVelocity = new Vector2(dir * speed, 0f);
+        rb.linearVelocity = dir * speed;
         deadline = Time.time + maxFlyTime;
     }
 
@@ -60,7 +68,7 @@ public class Knife : MonoBehaviour
     {
         if (!stuck && !finished && Time.time > deadline)
         {
-            Destroy(gameObject);
+            //Destroy(gameObject);
             return;
         }
 
@@ -83,10 +91,17 @@ public class Knife : MonoBehaviour
     {
         if (stuck || finished) return;
 
-        // 先端から、次の1ステップで進む距離を調べる(壁・敵・ロープをまとめて)
         float dist = speed * Time.fixedDeltaTime;
-        Vector2 tip = rb.position + Vector2.right * dir * halfLength;
-        RaycastHit2D hit = Physics2D.Raycast(tip, Vector2.right * dir, dist, hitMask);
+
+        Vector2 tip = rb.position + dir * halfLength;
+
+        RaycastHit2D hit = Physics2D.Raycast(
+            tip,
+            dir,
+            dist,
+            hitMask
+        );
+
         if (hit.collider != null) Resolve(hit);
     }
 
@@ -108,12 +123,12 @@ public class Knife : MonoBehaviour
             var enemy = hit.collider.GetComponentInParent<Enemy>();
             if (enemy != null)
             {
-                enemy.TakeDamage(damage, dir);
+                enemy.TakeDamage(damage, dir.x >= 0 ? 1 : -1);
             }
             else
             {
                 var target = hit.collider.GetComponentInParent<IDamageable>();     // ボスなど
-                if (target != null) target.TakeDamage(damage, dir);
+                if (target != null)target.TakeDamage(damage, dir.x >= 0 ? 1 : -1);
             }
             Destroy(gameObject);
         }
@@ -122,7 +137,7 @@ public class Knife : MonoBehaviour
             // 刺さらない壁:跳ね返って落ちて消える
             finished = true;
             rb.gravityScale = 3f;
-            rb.linearVelocity = new Vector2(-dir * 4f, 5f);
+            rb.linearVelocity = -dir * 4f + Vector2.up * 5f;
             Destroy(gameObject, 0.5f);
         }
         else
@@ -133,9 +148,14 @@ public class Knife : MonoBehaviour
 
     void EmbedAt(Vector2 surface)
     {
-        float tipX = surface.x + dir * embedDepth;
-        Vector2 pos = new Vector2(tipX - dir * halfLength, rb.position.y);
-        transform.position = new Vector3(pos.x, pos.y, transform.position.z);
+        Vector2 pos = surface - dir * (halfLength - embedDepth);
+
+        transform.position = new Vector3(
+            pos.x,
+            pos.y,
+            transform.position.z
+        );
+
         rb.position = pos;
         Stick();
     }
@@ -144,15 +164,24 @@ public class Knife : MonoBehaviour
     {
         stuck = true;
         stuckAt = Time.time;
+
         rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
         col.isTrigger = false;
         col.usedByEffector = true;
 
+        // 足場判定の向きを画面上方向に固定
+        if (platformEffector != null)
+        {
+            platformEffector.useOneWay = true;
+            platformEffector.rotationalOffset = -transform.eulerAngles.z;
+        }
+
         var arena = ArenaRotator.Instance;
+
         if (arena != null)
         {
-            // 箱の壁と一緒に動くよう、箱の子にして、ナイフ自身の剛体は外す
-            // (コライダーが、箱の剛体の一部になる)
             transform.SetParent(arena.transform, true);
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
@@ -160,7 +189,7 @@ public class Knife : MonoBehaviour
         }
         else
         {
-            rb.bodyType = RigidbodyType2D.Static;     // 箱がないシーンでは、これまでどおり
+            rb.bodyType = RigidbodyType2D.Static;
         }
     }
 }

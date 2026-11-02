@@ -145,10 +145,10 @@ public class RunRecorder : MonoBehaviour
     }
 
     // 仮の確認用表示(結果画面ができたら置き換える)
-    void OnGUI()
-    {
-        if (LevelEditor.IsEditing) return;
-        GUI.Label(new Rect(10, Screen.height - 40, 800, 30),
-            $"ナイフ {Stats.KnifeThrown}   近接 {Stats.MeleeCount}   着地 {Stats.Landings}   死亡 {Stats.Deaths}   時間 {Stats.ElapsedTime:F1}秒");
-    }
+    //void OnGUI()
+    //{
+    //    if (LevelEditor.IsEditing) return;
+    //    GUI.Label(new Rect(10, Screen.height - 40, 800, 30),
+    //        $"ナイフ {Stats.KnifeThrown}   近接 {Stats.MeleeCount}   着地 {Stats.Landings}   死亡 {Stats.Deaths}   時間 {Stats.ElapsedTime:F1}秒");
+    //}
 }

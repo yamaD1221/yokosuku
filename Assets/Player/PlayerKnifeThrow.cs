@@ -33,12 +33,14 @@ public class PlayerKnifeThrow : MonoBehaviour
     {
         RunRecorder.KnifeThrown();
 
+        Vector2 direction = player.attackDirection;
+
         Vector2 pos = (Vector2)transform.position
-            + new Vector2(spawnOffset.x * player.Facing, spawnOffset.y);
+            + direction * spawnOffset.x;
 
         var k = Instantiate(knifePrefab, pos, Quaternion.identity);
-        Vector2 castOrigin = new Vector2(transform.position.x, pos.y);   // プレイヤーの中心の高さ=ナイフの高さ
-        k.Launch(player.Facing, castOrigin);
+        Vector2 castOrigin = transform.position;   // プレイヤーの中心の高さ=ナイフの高さ
+        k.Launch(direction, castOrigin);
 
         thrown.Add(k);
         thrown.RemoveAll(x => x == null);

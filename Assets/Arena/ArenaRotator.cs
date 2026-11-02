@@ -148,12 +148,12 @@ public class ArenaRotator : MonoBehaviour
         return new Vector2(screen.x * c - screen.y * s, screen.x * s + screen.y * c);
     }
 
-    void OnGUI()
-    {
-        if (!debugKeys) return;
-        GUI.Label(new Rect(10, 140, 700, 30),
-            $"箱の回転 [ ]:反時計/時計   向き: 時計回りに{QuarterTurns}回   {(IsRotating ? $"回転中 {Progress * 100f:F0}%" : "停止中")}");
-    }
+    //void OnGUI()
+    //{
+    //    if (!debugKeys) return;
+    //    GUI.Label(new Rect(10, Screen.height - 30, 700, 30),
+    //        $"箱の回転 [ ]:反時計/時計   向き: 時計回りに{QuarterTurns}回   {(IsRotating ? $"回転中 {Progress * 100f:F0}%" : "停止中")}");
+    //}
 
     void OnDrawGizmosSelected()
     {

@@ -20,6 +20,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [SerializeField] private float idleTime = 0.2f;
     [SerializeField] private float moveTime = 0.4f;               // 別の壁へ移る時間
 
+    [Header("初期障害物への着地")]
+    [SerializeField] private float initialObjectSearchDistance = 4f;
+
     [Header("攻撃の選び方")]
     [SerializeField] private float farDistance = 9f;              // プレイヤーがこれより遠いと、遠距離攻撃
     [SerializeField, Range(0f, 1f)] private float rotateChance = 0.25f;   // サイクルの頭で、回転攻撃を行う確率
@@ -54,6 +57,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [SerializeField] private float defeatDelay = 0.8f;
 
     [SerializeField] private Material lineMaterial;               // 前兆の線の素材(空でもOK)
+
+
+
 
     private float hp;
     private bool defeated;
@@ -294,6 +300,11 @@ public class FrameBoss : MonoBehaviour, IDamageable
         Vector2 from = transform.position;
         Vector2 to = SpotOn(next, Random.value);
 
+        if (TryGetInitialObjectLandingPosition(next, to, out Vector2 landing))
+        {
+            to = landing;
+        }
+
         float t = 0f;
         while (t < moveTime)
         {
@@ -304,6 +315,115 @@ public class FrameBoss : MonoBehaviour, IDamageable
         }
         SetPos(to);
         currentWall = next;
+    }
+
+    private bool TryGetInitialObjectLandingPosition(
+    Wall targetWall,
+    Vector2 intendedPosition,
+    out Vector2 landingPosition)
+    {
+        landingPosition = intendedPosition;
+
+        GameObject[] objects = GameObject.FindGameObjectsWithTag("InitialObj");
+
+        Rect inner = Inner();
+
+        float nearestDistance = initialObjectSearchDistance;
+        bool found = false;
+
+        foreach (GameObject obj in objects)
+        {
+            if (obj == null)
+                continue;
+
+            Collider2D col = obj.GetComponent<Collider2D>();
+
+            if (col == null)
+                continue;
+
+            Bounds bounds = col.bounds;
+
+            Vector2 candidate = intendedPosition;
+
+            switch (targetWall)
+            {
+                case Wall.Floor:
+                    // 床側にある障害物だけを対象にする
+                    if (bounds.center.y >= inner.center.y)
+                        continue;
+
+                    // ボスが障害物の上に乗る
+                    if (bounds.size.x < halfSize.x * 2f)
+                        continue;
+
+                    candidate.x = Mathf.Clamp(
+                        intendedPosition.x,
+                        bounds.min.x + halfSize.x,
+                        bounds.max.x - halfSize.x
+                    );
+                    candidate.y = bounds.max.y + halfSize.y;
+                    break;
+
+                case Wall.Ceiling:
+                    if (bounds.center.y <= inner.center.y)
+                        continue;
+
+                    if (bounds.size.x < halfSize.x * 2f)
+                        continue;
+
+                    candidate.x = Mathf.Clamp(
+                        intendedPosition.x,
+                        bounds.min.x + halfSize.x,
+                        bounds.max.x - halfSize.x
+                    );
+                    candidate.y = bounds.min.y - halfSize.y;
+                    break;
+
+                case Wall.Left:
+                    if (bounds.center.x >= inner.center.x)
+                        continue;
+
+                    if (bounds.size.y < halfSize.y * 2f)
+                        continue;
+
+                    candidate.x = bounds.max.x + halfSize.x;
+                    candidate.y = Mathf.Clamp(
+                        intendedPosition.y,
+                        bounds.min.y + halfSize.y,
+                        bounds.max.y - halfSize.y
+                    );
+                    break;
+
+                case Wall.Right:
+                    if (bounds.center.x <= inner.center.x)
+                        continue;
+
+                    if (bounds.size.y < halfSize.y * 2f)
+                        continue;
+
+                    candidate.x = bounds.min.x - halfSize.x;
+                    candidate.y = Mathf.Clamp(
+                        intendedPosition.y,
+                        bounds.min.y + halfSize.y,
+                        bounds.max.y - halfSize.y
+                    );
+                    break;
+            }
+
+            float distance = Vector2.Distance(
+                intendedPosition,
+                candidate
+            );
+
+            if (distance <= nearestDistance)
+            {
+                nearestDistance = distance;
+                landingPosition = candidate;
+                found = true;
+            }
+        }
+
+        return found;
     }
 
     // 落下攻撃: 向かいの壁に、前兆(赤く点滅、着地点の印と線)を出して、落下する。着地すると、衝撃波が走る
@@ -325,6 +445,12 @@ public class FrameBoss : MonoBehaviour, IDamageable
             if (!locked) lockedU = ProjectU(target, player.position);     // 固定されるまでは、プレイヤーを追う
 
             Vector2 to = SpotOn(target, lockedU);
+
+            if (TryGetInitialObjectLandingPosition(target, to, out Vector2 previewLanding))
+            {
+                to = previewLanding;
+            }
+
             slamLine.SetPosition(0, transform.position);
             slamLine.SetPosition(1, to);
             marker.transform.position = to;
@@ -339,6 +465,12 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // 落下(だんだん速くなる)。落下中は、体に触れるとダメージ
         Vector2 from = transform.position;
         Vector2 dest = SpotOn(target, lockedU);
+
+        if (TryGetInitialObjectLandingPosition(target, dest, out Vector2 landing))
+        {
+            dest = landing;
+        }
+
         contactEnabled = true;
         t = 0f;
         while (t < diveTime)
@@ -489,8 +621,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
 
         // 体力バー(攻撃タイミング中は、枠が黄色くなる)
-        float w = 600f, h = 22f;
-        float x = (Screen.width - w) * 0.5f, y = 96f;
+        float w = 300f, h = 18f;
+        float x = 30f, y = 100f;
         GUI.color = vulnerable ? new Color(1f, 0.9f, 0.2f, 0.9f) : new Color(0f, 0f, 0f, 0.7f);
         GUI.DrawTexture(new Rect(x - 3f, y - 3f, w + 6f, h + 6f), Texture2D.whiteTexture);
         GUI.color = new Color(0f, 0f, 0f, 0.85f);
