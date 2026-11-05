@@ -1863,6 +1863,7 @@ MonoBehaviour:
   moveSnap: 0.5
   rotateStep: 15
   minSize: 0.25
+  editHalfRange: 4
 --- !u!4 &2048306604
 Transform:
   m_ObjectHideFlags: 0

@@ -47,20 +47,39 @@ public class PlayerAttack : MonoBehaviour
             angle,
             enemyLayer
         );
+
         foreach (var h in hits)
         {
             var enemy = h.GetComponent<Enemy>();
-            if (enemy != null) { enemy.TakeDamage(damage, player.Facing); continue; }
+            if (enemy != null)
+            {
+                enemy.TakeDamage(damage, player.Facing);
+                continue;
+            }
 
-            var target = h.GetComponentInParent<IDamageable>();     // ボスなど
-            if (target != null) target.TakeDamage(damage, player.Facing);
+            var target = h.GetComponentInParent<IDamageable>();
+            if (target != null)
+            {
+                target.TakeDamage(damage, player.Facing);
+            }
         }
+
+        // 攻撃範囲内のロープを切断
         var ropeHits = Physics2D.OverlapBoxAll(
             center,
             attackSize,
             angle,
             ropeLayer
         );
+
+        foreach (var h in ropeHits)
+        {
+            var rope = h.GetComponentInParent<Rope>();
+            if (rope != null)
+            {
+                rope.Cut();
+            }
+        }
     }
 
     // シーンビューで攻撃範囲を確認するため

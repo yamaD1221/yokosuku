@@ -25,31 +25,35 @@ public class PlayerController : MonoBehaviour
     {
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
 
-        // 画面上の入力(A/D=左右、W/S=上下)を、箱の向きに合わせて、箱の中の左右の移動に読み替える
-        Vector2 screenInput = new Vector2((Keyboard.current.dKey.isPressed ? 1f : 0f)
-                                        - (Keyboard.current.aKey.isPressed ? 1f : 0f),
-                                          (Keyboard.current.wKey.isPressed ? 1f : 0f)
-                                        - (Keyboard.current.sKey.isPressed ? 1f : 0f));
+        // 画面上の入力を取得
+        Vector2 screenInput = new Vector2(
+            (Keyboard.current.dKey.isPressed ? 1f : 0f) - (Keyboard.current.aKey.isPressed ? 1f : 0f),
+            (Keyboard.current.wKey.isPressed ? 1f : 0f) - (Keyboard.current.sKey.isPressed ? 1f : 0f)
+        );
 
-        //  マウス座標をワールド座標に変換
-        Vector3 mousePos = Mouse.current.position.ReadValue();
-        mousePos.z = -Camera.main.transform.position.z;
-
-        Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
-
-        Vector2 mouseDiff = (Vector2)worldPos - (Vector2)transform.position;
-
-        if (mouseDiff.sqrMagnitude > 0.001f)
-        {
-            attackDirection = mouseDiff.normalized;
-        }
-
-
+        // 箱の向きに合わせて移動方向を変換
         float x = ArenaRotator.Instance != null
             ? Mathf.Clamp(ArenaRotator.Instance.ScreenToLocal(screenInput).x, -1f, 1f)
             : screenInput.x;
 
+        // 移動方向に合わせてキャラクターの向きを更新
+        if (Mathf.Abs(x) > 0.1f)
+        {
+            Facing = x > 0f ? 1 : -1;
+        }
 
+        // マウス座標をワールド座標に変換
+        Vector3 mousePos = Mouse.current.position.ReadValue();
+        mousePos.z = -Camera.main.transform.position.z;
+
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+        Vector2 mouseDiff = (Vector2)worldPos - (Vector2)transform.position;
+
+        // マウス方向を攻撃方向として保存
+        if (mouseDiff.sqrMagnitude > 0.001f)
+        {
+            attackDirection = mouseDiff.normalized;
+        }
 
         bool stunned = health != null && health.IsStunned;
 
@@ -89,6 +93,7 @@ public class PlayerController : MonoBehaviour
             collision.gameObject.CompareTag("EditableObj"))
         {
             jumpCount = 0;
+            Debug.Log("ジャンプ回数をリセットしました");
         }
     }
 }

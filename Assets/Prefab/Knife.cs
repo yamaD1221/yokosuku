@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody2D), typeof(BoxCollider2D))]
+[RequireComponent(typeof(BoxCollider2D))]
 public class Knife : MonoBehaviour
 {
     [SerializeField] private float speed = 20f;
@@ -127,8 +127,11 @@ public class Knife : MonoBehaviour
             }
             else
             {
-                var target = hit.collider.GetComponentInParent<IDamageable>();     // ボスなど
-                if (target != null)target.TakeDamage(damage, dir.x >= 0 ? 1 : -1);
+                var target = hit.collider.GetComponentInParent<IDamageable>(); // ボスなど
+                if (target != null)
+                {
+                    target.TakeDamage(damage, dir.x >= 0 ? 1 : -1);
+                }
             }
             Destroy(gameObject);
         }
@@ -182,7 +185,9 @@ public class Knife : MonoBehaviour
 
         if (arena != null)
         {
+            // 箱の壁と一緒に動くように、箱の子にする
             transform.SetParent(arena.transform, true);
+
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
             rb.bodyType = RigidbodyType2D.Kinematic;
@@ -191,5 +196,5 @@ public class Knife : MonoBehaviour
         {
             rb.bodyType = RigidbodyType2D.Static;
         }
-    }
+    } 
 }
