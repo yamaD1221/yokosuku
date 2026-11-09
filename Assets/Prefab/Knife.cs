@@ -191,23 +191,8 @@ public class Knife : MonoBehaviour
         // 衝突したオブジェクトのレイヤーをビット形式で取得する
         int bit = 1 << hit.collider.gameObject.layer;
 
-        // ロープに当たった場合
-        if ((ropeLayer.value & bit) != 0)
-        {
-            // ナイフの役目を終了する
-            finished = true;
-
-            // 親オブジェクトも含めてRopeを取得する
-            var rope = hit.collider.GetComponentInParent<Rope>();
-
-            // ロープが存在する場合は切断する
-            if (rope != null) rope.Cut();
-
-            // ナイフを削除する
-            Destroy(gameObject);
-        }
         // 敵に当たった場合
-        else if ((enemyLayer.value & bit) != 0)
+        if ((enemyLayer.value & bit) != 0)
         {
             // ナイフの役目を終了する
             finished = true;

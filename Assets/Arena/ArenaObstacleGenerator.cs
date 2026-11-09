@@ -296,6 +296,14 @@ public class ArenaObstacleGenerator : MonoBehaviour
     }
 
     // ClearObstacles：以前に生成した障害物を削除して配置情報をリセットする
+    // 生成した初期障害物のColliderだけを外部スクリプトへ渡す。
+    // 衝撃波の輪郭取得で、プレイヤーやボスなどを障害物として扱わないために使う。
+    public Collider2D[] GetGeneratedColliders()
+    {
+        if (generatedRoot == null) return new Collider2D[0];
+        return generatedRoot.GetComponentsInChildren<Collider2D>();
+    }
+
     private void ClearObstacles()
     {
         // 生成した障害物の親オブジェクトを名前で検索

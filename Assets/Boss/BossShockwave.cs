@@ -1,187 +1,162 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-// ÕŒ‚”gB” ‚Ì•Ç‚É‰ˆ‚Á‚Ä° ¨ ‰E‚Ì•Ç ¨ “Vˆä ¨ ¶‚Ì•Ç ¨ °‚Ì‡”Ô‚ÅˆÚ“®‚·‚é
-// •Ç‚©‚ç—£‚ê‚½êŠ‚É‚¢‚éƒvƒŒƒCƒ„[‚É‚Í“–‚½‚ç‚È‚¢
+// åˆæœŸéšœå®³ç‰©ã®å†…å´è¼ªéƒ­ã‚’ã¤ãªã„ã çµŒè·¯ã«æ²¿ã£ã¦ç§»å‹•ã™ã‚‹è¡æ’ƒæ³¢ã€‚
 public class BossShockwave : MonoBehaviour
 {
-    // ÕŒ‚”g‚ÌŒ©‚½–Ú‚Ég‚¤lŠpŒ`‚ÌSprite
     private static Sprite square;
 
-    // SquareSpriteFÕŒ‚”g—p‚ÌSprite‚ğæ“¾‚·‚é
-    // ‚Ü‚¾ì‚ç‚ê‚Ä‚¢‚È‚¢ê‡‚Íì¬‚µ‚ÄAŸ‰ñˆÈ~‚Íg‚¢‰ñ‚·
     public static Sprite SquareSprite
     {
         get
         {
             if (square == null)
             {
-                // ”’‚¢ƒeƒNƒXƒ`ƒƒ‚©‚çlŠpŒ`‚ÌSprite‚ğì¬‚·‚é
-                var tex = Texture2D.whiteTexture;
-                square = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+                Texture2D tex = Texture2D.whiteTexture;
+                square = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f), tex.width);
             }
             return square;
         }
     }
 
-    // ÕŒ‚”g‚Ì’†S‚ªˆÚ“®‚·‚élŠpŒ`‚Ì“¹
-    private Rect loop;
-
-    // “¹‚Ìã‚Å‚ÌŒ»İˆÊ’uiƒXƒ^[ƒg’n“_‚©‚ç‚Ì‹——£j
-    private float s;
-
-    // ˆÚ“®‚·‚é•ûŒüi+1F‡•ûŒüA-1F‹t•ûŒüj
-    private int dir;
-
-    // ˆÚ“®‘¬“xEc‚è‚ÌˆÚ“®‹——£EÕŒ‚”g‚Ì”¼Œa
-    private float speed, remaining, radius;
-
-    // ƒvƒŒƒCƒ„[‚É—^‚¦‚éƒ_ƒ[ƒW—Ê
+    // ä¸€å‘¨ã™ã‚‹æŠ˜ã‚Œç·šçµŒè·¯ã¨ã€å„ç‚¹ã¾ã§ã®ç´¯ç©è·é›¢ã€‚
+    private Vector2[] path;
+    private float[] cumulative;
+    private float totalLength;
+    private float distanceAlongPath;
+    private int direction;
+    private float speed;
+    private float remaining;
+    private float radius;
     private int damage;
-
-    // ƒvƒŒƒCƒ„[‚ÌCollider
     private Collider2D playerCol;
-
-    // ƒvƒŒƒCƒ„[‚Ì‘Ì—Í‚ğŠÇ—‚·‚éƒXƒNƒŠƒvƒg
     private PlayerHealth playerHealth;
 
-    // SpawnFÕŒ‚”g‚ğ¶¬‚µ‚ÄAˆÚ“®Œo˜H‚â‘¬“x‚È‚Ç‚ğİ’è‚·‚é
-    public static void Spawn(Rect loop, float startS, int dir, float speed, float distance, float radius,
-        int damage, Collider2D playerCol, PlayerHealth playerHealth, Color color)
+    // çµŒè·¯ã‚’æŒ‡å®šã—ã¦è¡æ’ƒæ³¢ã‚’ç”Ÿæˆã™ã‚‹ã€‚
+    public static void Spawn(IList<Vector2> contour, float startDistance, int direction,
+        float speed, float distance, float radius, int damage,
+        Collider2D playerCol, PlayerHealth playerHealth, Color color)
     {
-        // ÕŒ‚”g‚ÌGameObject‚ğì¬‚·‚é
-        var go = new GameObject("BossShockwave");
+        if (contour == null || contour.Count < 3) return;
 
-        // SpriteRenderer‚ğ’Ç‰Á‚µ‚ÄAÕŒ‚”g‚ÌŒ©‚½–Ú‚ğİ’è‚·‚é
-        var sr = go.AddComponent<SpriteRenderer>();
+        GameObject go = new GameObject("BossShockwave");
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = SquareSprite;
         sr.color = color;
         sr.sortingOrder = 7;
-
-        // ÕŒ‚”g‚Ì‘å‚«‚³‚ğİ’è‚·‚é
         go.transform.localScale = Vector3.one * radius * 2f;
 
-        // BossShockwave‚ğ’Ç‰Á‚µ‚ÄAÕŒ‚”g‚Ìî•ñ‚ğ•Û‘¶‚·‚é
-        var w = go.AddComponent<BossShockwave>();
-        w.loop = loop;
-        w.s = startS;
-        w.dir = dir;
-        w.speed = speed;
-        w.remaining = distance;
-        w.radius = radius;
-        w.damage = damage;
-        w.playerCol = playerCol;
-        w.playerHealth = playerHealth;
-
-        // “¹‚Ìã‚ÌŠJnˆÊ’u‚©‚çAÀÛ‚ÌÀ•W‚ğ‹‚ß‚Ä”z’u‚·‚é
-        go.transform.position = PointOnLoop(loop, startS);
+        BossShockwave wave = go.AddComponent<BossShockwave>();
+        wave.path = new Vector2[contour.Count];
+        for (int i = 0; i < contour.Count; i++) wave.path[i] = contour[i];
+        wave.BuildCumulativeLengths();
+        wave.distanceAlongPath = Mathf.Repeat(startDistance, wave.totalLength);
+        wave.direction = direction >= 0 ? 1 : -1;
+        wave.speed = speed;
+        wave.remaining = distance;
+        wave.radius = radius;
+        wave.damage = damage;
+        wave.playerCol = playerCol;
+        wave.playerHealth = playerHealth;
+        go.transform.position = wave.PointAtDistance(wave.distanceAlongPath);
     }
 
-    // UpdateF–ˆƒtƒŒ[ƒ€ÀsBÕŒ‚”g‚ÌˆÚ“®‚ÆƒvƒŒƒCƒ„[‚Æ‚Ì“–‚½‚è”»’è‚ğs‚¤
-    void Update()
+    private void BuildCumulativeLengths()
     {
-        // ƒŒƒxƒ‹•ÒW’†‚È‚çÕŒ‚”g‚ğíœ‚·‚é
+        cumulative = new float[path.Length + 1];
+        cumulative[0] = 0f;
+        for (int i = 0; i < path.Length; i++)
+        {
+            Vector2 a = path[i];
+            Vector2 b = path[(i + 1) % path.Length];
+            cumulative[i + 1] = cumulative[i] + Vector2.Distance(a, b);
+        }
+        totalLength = cumulative[path.Length];
+    }
+
+    private void Update()
+    {
         if (LevelEditor.IsEditing) { Destroy(gameObject); return; }
-
-        // 1ƒtƒŒ[ƒ€‚Éi‚ŞŠÔ‚ğæ“¾
         float dt = Time.deltaTime;
+        if (dt <= 0f || totalLength <= 0.001f) return;
 
-        // ŠÔ‚ªi‚ñ‚Å‚¢‚È‚¢ê‡‚Íˆ—‚ğI—¹iˆê’â~’†j
-        if (dt <= 0f) return;
-
-        // 1ƒtƒŒ[ƒ€‚ÅˆÚ“®‚·‚é‹——£‚ğŒvZ
         float step = speed * dt;
-
-        // ˆÚ“®•ûŒü‚É‡‚í‚¹‚Ä“¹‚Ìã‚ÌˆÊ’u‚ğXV‚·‚é
-        s += dir * step;
-
-        // c‚è‚ÌˆÚ“®‹——£‚ğŒ¸‚ç‚·
+        distanceAlongPath = Mathf.Repeat(distanceAlongPath + direction * step, totalLength);
         remaining -= step;
-
-        // ˆÚ“®‹——£‚ª‚È‚­‚È‚Á‚½‚çÕŒ‚”g‚ğíœ‚·‚é
         if (remaining <= 0f) { Destroy(gameObject); return; }
 
-        // “¹‚Ìã‚ÌˆÊ’u‚©‚çÀÛ‚Ìƒ[ƒ‹ƒhÀ•W‚ğ‹‚ß‚é
-        Vector2 pos = PointOnLoop(loop, s);
-
-        // ÕŒ‚”g‚ÌˆÊ’u‚ğXV‚·‚é
+        Vector2 pos = PointAtDistance(distanceAlongPath);
         transform.position = pos;
 
-        // ƒvƒŒƒCƒ„[‚É“–‚½‚Á‚½‚çƒ_ƒ[ƒW‚ğ—^‚¦‚é
-        // –³“GŠÔ‚ÌŠÇ—‚ÍPlayerHealth‘¤‚Ås‚¤
         if (playerCol != null && playerHealth != null)
         {
-            // ClosestPointFƒvƒŒƒCƒ„[‚ÌColliderã‚ÅAÕŒ‚”g‚ÉÅ‚à‹ß‚¢ˆÊ’u‚ğæ“¾‚·‚é
             Vector2 closest = playerCol.ClosestPoint(pos);
-
-            // ÕŒ‚”g‚ÆƒvƒŒƒCƒ„[‚ÌÅ’Z‹——£‚ª”¼ŒaˆÈ“à‚È‚ç“–‚½‚Á‚½‚Æ”»’è‚·‚é
             if ((closest - pos).sqrMagnitude <= radius * radius)
             {
-                // ƒvƒŒƒCƒ„[‚ªÕŒ‚”g‚Ì‰E‘¤‚É‚¢‚é‚©¶‘¤‚É‚¢‚é‚©‚ÅA‚«”ò‚Î‚·•ûŒü‚ğŒˆ‚ß‚é
                 int fromDir = playerCol.bounds.center.x >= pos.x ? 1 : -1;
-
-                // ƒvƒŒƒCƒ„[‚Éƒ_ƒ[ƒW‚ğ—^‚¦‚é
                 playerHealth.TakeDamage(damage, fromDir);
             }
         }
     }
 
-    // PerimeterF“¹‚Æ‚È‚élŠpŒ`‚Ìˆêü•ª‚Ì’·‚³‚ğ‹‚ß‚é
-    public static float Perimeter(Rect r) => 2f * (r.width + r.height);
-
-    // PointOnLoopF“¹‚Ìã‚ÌˆÊ’ui‹——£j‚©‚çAÀÛ‚ÌÀ•W‚ğ‹‚ß‚é
-    // ˆÚ“®‚·‚é‡”ÔF°i¶¨‰Ej¨ ‰E‚Ì•Çi‰º¨ãj¨ “Vˆäi‰E¨¶j¨ ¶‚Ì•Çiã¨‰ºj
-    public static Vector2 PointOnLoop(Rect r, float s)
+    private Vector2 PointAtDistance(float distance)
     {
-        // lŠpŒ`‚Ì•E‚‚³Eˆêü•ª‚Ì’·‚³‚ğæ“¾
-        float w = r.width, h = r.height, p = Perimeter(r);
+        if (path == null || path.Length == 0) return Vector2.zero;
+        distance = Mathf.Repeat(distance, totalLength);
 
-        // ˆÊ’u‚ªˆêü•ª‚Ì’·‚³‚ğ’´‚¦‚Ä‚àA0?ˆêü•ª‚Ì”ÍˆÍ‚Éû‚ß‚é
-        // ƒ}ƒCƒiƒX‚ÌˆÊ’u‚É‚à‘Î‰‚·‚é
-        s = ((s % p) + p) % p;
+        int segment = 0;
+        while (segment < path.Length - 1 && cumulative[segment + 1] < distance)
+            segment++;
 
-        // °F¶‚©‚ç‰E‚ÖˆÚ“®
-        if (s < w) return new Vector2(r.xMin + s, r.yMin);
-
-        // °‚Ì’·‚³‚ğˆø‚¢‚ÄAŸ‚Ì•Ç‚Å‚ÌˆÊ’u‚É•ÏŠ·
-        s -= w;
-
-        // ‰E‚Ì•ÇF‰º‚©‚çã‚ÖˆÚ“®
-        if (s < h) return new Vector2(r.xMax, r.yMin + s);
-
-        // ‰E‚Ì•Ç‚Ì’·‚³‚ğˆø‚­
-        s -= h;
-
-        // “VˆäF‰E‚©‚ç¶‚ÖˆÚ“®
-        if (s < w) return new Vector2(r.xMax - s, r.yMax);
-
-        // “Vˆä‚Ì’·‚³‚ğˆø‚­
-        s -= w;
-
-        // ¶‚Ì•ÇFã‚©‚ç‰º‚ÖˆÚ“®
-        return new Vector2(r.xMin, r.yMax - s);
+        float segmentLength = cumulative[segment + 1] - cumulative[segment];
+        float t = segmentLength > 0.0001f
+            ? (distance - cumulative[segment]) / segmentLength
+            : 0f;
+        Vector2 a = path[segment];
+        Vector2 b = path[(segment + 1) % path.Length];
+        return Vector2.Lerp(a, b, t);
     }
 
-    // ParamOnLoopF•Ç‚Ì”Ô†‚Æ•Ç‚Ìã‚ÌÀ•W‚©‚çA“¹‚Ìã‚ÌˆÊ’ui‹——£j‚ğ‹‚ß‚é
-    // •Ç‚Ì”Ô†F0=°A1=‰EA2=“VˆäA3=¶
-    public static float ParamOnLoop(Rect r, int wall, Vector2 p)
+    // çµŒè·¯å…¨ä½“ã®é•·ã•ã€‚
+    public static float PathLength(IList<Vector2> contour)
     {
-        // lŠpŒ`‚Ì•‚Æ‚‚³‚ğæ“¾
-        float w = r.width, h = r.height;
+        if (contour == null || contour.Count < 2) return 0f;
+        float length = 0f;
+        for (int i = 0; i < contour.Count; i++)
+            length += Vector2.Distance(contour[i], contour[(i + 1) % contour.Count]);
+        return length;
+    }
 
-        // •Ç‚Ì•ûŒü‚É‰‚¶‚ÄA“¹‚Ìã‚Å‚ÌˆÊ’u‚ğŒvZ‚·‚é
-        switch (wall)
+    // ç€åœ°ç‚¹ã‹ã‚‰æœ€ã‚‚è¿‘ã„çµŒè·¯ä¸Šã®ä½ç½®ã‚’ã€ã‚¹ã‚¿ãƒ¼ãƒˆè·é›¢ã¨ã—ã¦è¿”ã™ã€‚
+    public static float FindNearestDistance(IList<Vector2> contour, Vector2 position)
+    {
+        if (contour == null || contour.Count < 2) return 0f;
+
+        float bestDistanceSqr = float.MaxValue;
+        float bestAlong = 0f;
+        float traversed = 0f;
+
+        for (int i = 0; i < contour.Count; i++)
         {
-            // °F¶’[‚©‚ç‰E•ûŒü‚Ö‚Ì‹——£
-            case 0: return Mathf.Clamp(p.x - r.xMin, 0f, w);
+            Vector2 a = contour[i];
+            Vector2 b = contour[(i + 1) % contour.Count];
+            Vector2 segment = b - a;
+            float lengthSqr = segment.sqrMagnitude;
+            float t = lengthSqr > 0.0001f
+                ? Mathf.Clamp01(Vector2.Dot(position - a, segment) / lengthSqr)
+                : 0f;
+            Vector2 nearest = a + segment * t;
+            float sqr = (position - nearest).sqrMagnitude;
+            float length = Mathf.Sqrt(lengthSqr);
 
-            // ‰E‚Ì•ÇF°‚Ì’·‚³‚ÉA‰º’[‚©‚çã•ûŒü‚Ö‚Ì‹——£‚ğ‘«‚·
-            case 1: return w + Mathf.Clamp(p.y - r.yMin, 0f, h);
-
-            // “VˆäF°‚Æ‰E‚Ì•Ç‚Ì’·‚³‚ÉA‰E’[‚©‚ç¶•ûŒü‚Ö‚Ì‹——£‚ğ‘«‚·
-            case 2: return w + h + Mathf.Clamp(r.xMax - p.x, 0f, w);
-
-            // ¶‚Ì•ÇF°E‰E‚Ì•ÇE“Vˆä‚Ì’·‚³‚ÉAã’[‚©‚ç‰º•ûŒü‚Ö‚Ì‹——£‚ğ‘«‚·
-            default: return 2f * w + h + Mathf.Clamp(r.yMax - p.y, 0f, h);
+            if (sqr < bestDistanceSqr)
+            {
+                bestDistanceSqr = sqr;
+                bestAlong = traversed + length * t;
+            }
+            traversed += length;
         }
+        return bestAlong;
     }
 }

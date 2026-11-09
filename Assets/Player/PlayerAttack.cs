@@ -103,6 +103,9 @@ public class PlayerAttack : MonoBehaviour
                 // player.Facingでプレイヤーの向きも渡す
                 enemy.TakeDamage(damage, player.Facing);
 
+                // 攻撃が当たった場所に火花を発生させる
+                HitSparkEffect.Play(h.ClosestPoint(center), direction);
+
                 // このオブジェクトの処理を終了し、次の判定へ進む
                 continue;
             }
@@ -115,32 +118,11 @@ public class PlayerAttack : MonoBehaviour
             {
                 // IDamageableを実装した対象にダメージを与える
                 target.TakeDamage(damage, player.Facing);
+                // 攻撃が当たった場所に火花を発生させる
+                HitSparkEffect.Play(h.ClosestPoint(center), direction);
             }
         }
-
-        // ---------- ロープの切断判定 ----------
-
-        // 敵への攻撃判定と同じ位置・大きさ・角度で、
-        // ropeLayerに設定されたロープを検索する
-        var ropeHits = Physics2D.OverlapBoxAll(
-            center,
-            attackSize,
-            angle,
-            ropeLayer
-        );
-
-        // 攻撃範囲内で検出したロープを1つずつ確認する
-        foreach (var h in ropeHits)
-        {
-            // 検出したオブジェクト自身、または親からRopeを取得する
-            var rope = h.GetComponentInParent<Rope>();
-
-            if (rope != null)
-            {
-                // ロープが見つかった場合、切断処理を実行する
-                rope.Cut();
-            }
-        }
+       
     }
 
     // 選択中のオブジェクトの攻撃範囲をSceneビューに表示する

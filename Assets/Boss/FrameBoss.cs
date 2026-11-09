@@ -1,1198 +1,1426 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-// ƒ{ƒXuƒtƒŒ[ƒ€vB” ‚Ì•Ç(ã‰º¶‰E)‚Ì‚Ç‚±‚©‚ÖˆÚ“®‚µA—‰ºUŒ‚(ÕŒ‚”g‚Â‚«)‚©A‰“‹——£UŒ‚‚ğs‚¤B
-// UŒ‚‚Ì‚ ‚Æ‚ÍuUŒ‚ƒ^ƒCƒ~ƒ“ƒOv(ƒ_ƒEƒ“)‚É‚È‚èAƒvƒŒƒCƒ„[‚ÌUŒ‚‚ª‘å‚«‚­Œø‚­
+// ãƒœã‚¹ã€Œãƒ•ãƒ¬ãƒ¼ãƒ ã€ã€‚ç®±ã®å£(ä¸Šä¸‹å·¦å³)ã®ã©ã“ã‹ã¸ç§»å‹•ã—ã€è½ä¸‹æ”»æ’ƒ(è¡æ’ƒæ³¢ã¤ã)ã‹ã€é è·é›¢æ”»æ’ƒã‚’è¡Œã†ã€‚
+// æ”»æ’ƒã®ã‚ã¨ã¯ã€Œæ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ã€(ãƒ€ã‚¦ãƒ³)ã«ãªã‚Šã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ”»æ’ƒãŒå¤§ããåŠ¹ã
 [RequireComponent(typeof(Collider2D))]
 public class FrameBoss : MonoBehaviour, IDamageable
 {
-    // ƒ{ƒX‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚ğŠÇ—‚·‚é
+    // ãƒœã‚¹ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚’ç®¡ç†ã™ã‚‹
     public static FrameBoss Instance { get; private set; }
 
-    // •Ç‚Ì”Ô†‚ÍAÕŒ‚”g‚Ì“¹(° ¨ ‰E‚Ì•Ç ¨ “Vˆä ¨ ¶‚Ì•Ç)‚Ì‡
+    // å£ã®ç•ªå·ã¯ã€è¡æ’ƒæ³¢ã®é“(åºŠ â†’ å³ã®å£ â†’ å¤©äº• â†’ å·¦ã®å£)ã®é †
     private enum Wall { Floor = 0, Right = 1, Ceiling = 2, Left = 3 }
 
-    // ‘Ì—Í‚ÆAƒ_ƒ[ƒW‚Ì”{—¦
-    [Header("‘Ì—Í‚ÆAƒ_ƒ[ƒW‚Ì”{—¦")]
-    [SerializeField] private int maxHp = 40;                       // ƒ{ƒX‚ÌÅ‘å‘Ì—Í
-    [SerializeField] private float vulnerableMultiplier = 2f;    // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚Éó‚¯‚éƒ_ƒ[ƒW‚Ì”{—¦
-    [SerializeField] private float normalMultiplier = 0.5f;      // ’Êí‚Éó‚¯‚éƒ_ƒ[ƒW‚Ì”{—¦
+    // ä½“åŠ›ã¨ã€ãƒ€ãƒ¡ãƒ¼ã‚¸ã®å€ç‡
+    [Header("ä½“åŠ›ã¨ã€ãƒ€ãƒ¡ãƒ¼ã‚¸ã®å€ç‡")]
+    [SerializeField] private int maxHp = 40;                       // ãƒœã‚¹ã®æœ€å¤§ä½“åŠ›
+    [SerializeField] private float vulnerableMultiplier = 2f;    // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ä¸­ã«å—ã‘ã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸ã®å€ç‡
+    [SerializeField] private float normalMultiplier = 0.5f;      // é€šå¸¸æ™‚ã«å—ã‘ã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸ã®å€ç‡
 
-    // ˆÚ“®
-    [Header("ˆÚ“®")]
-    [SerializeField] private float idleTime = 0.2f;               // Ÿ‚Ìs“®‚ÉˆÚ‚é‚Ü‚Å‚Ì‘Ò‚¿ŠÔ
-    [SerializeField] private float moveTime = 0.4f;                // •Ê‚Ì•Ç‚ÖˆÚ“®‚·‚éŠÔ
+    // ç§»å‹•
+    [Header("ç§»å‹•")]
+    [SerializeField] private float idleTime = 0.2f;               // æ¬¡ã®è¡Œå‹•ã«ç§»ã‚‹ã¾ã§ã®å¾…ã¡æ™‚é–“
+    private const float moveTime = 3f;                       // ãƒ¯ãƒ¼ãƒ—å‰ã®äºˆå‘Šæ™‚é–“ï¼ˆå¿…ãš3ç§’ï¼‰
+    [SerializeField] private float teleportBlinkInterval = 0.5f;  // ç‚¹æ»…é–‹å§‹æ™‚ã®é–“éš”
+    [SerializeField] private float teleportBlinkFastInterval = 0.06f; // ã‚«ã‚¦ãƒ³ãƒˆçµ‚äº†ç›´å‰ã®ç‚¹æ»…é–“éš”
+    [SerializeField] private float destinationPadding = 0.15f;     // ãƒœã‚¹ã®å¹…ã«è¿½åŠ ã™ã‚‹ä½™è£•
 
-    // ‰ŠúáŠQ•¨‚Ö‚Ì’…’n
-    [Header("‰ŠúáŠQ•¨‚Ö‚Ì’…’n")]
-    [SerializeField] private float initialObjectSearchDistance = 4f; // ’…’n‚Å‚«‚é‰ŠúáŠQ•¨‚ğ’T‚·‹——£
+    // åˆæœŸéšœå®³ç‰©ã¸ã®ç€åœ°
+    [Header("åˆæœŸéšœå®³ç‰©ã¸ã®ç€åœ°")]
+    [SerializeField] private float initialObjectSearchDistance = 8f; // è¿‘ãã®è¶³å ´ã‚’æ¢ã™è·é›¢
 
-    // UŒ‚‚Ì‘I‚Ñ•û
-    [Header("UŒ‚‚Ì‘I‚Ñ•û")]
-    [SerializeField] private float farDistance = 9f;              // ƒvƒŒƒCƒ„[‚ª‚±‚ê‚æ‚è‰“‚¢‚Æ‰“‹——£UŒ‚‚ğ‘I‚Ô
-    [SerializeField, Range(0f, 1f)] private float rotateChance = 0.25f; // s“®ƒTƒCƒNƒ‹‚ÌÅ‰‚É‰ñ“]UŒ‚‚ğs‚¤Šm—¦
-    [SerializeField] private float rotateCooldown = 8f;           // ‰ñ“]UŒ‚ŒãAŸ‚É‰ñ“]UŒ‚‚ğ‘I‚×‚é‚Ü‚Å‚ÌŠÔ
+    // æ”»æ’ƒã®é¸ã³æ–¹
+    [Header("æ”»æ’ƒã®é¸ã³æ–¹")]
+    [SerializeField] private float farDistance = 9f;              // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒã“ã‚Œã‚ˆã‚Šé ã„ã¨é è·é›¢æ”»æ’ƒã‚’é¸ã¶
+    [SerializeField, Range(0f, 1f)] private float rotateChance = 0.25f; // è¡Œå‹•ã‚µã‚¤ã‚¯ãƒ«ã®æœ€åˆã«å›è»¢æ”»æ’ƒã‚’è¡Œã†ç¢ºç‡
+    [SerializeField] private float rotateCooldown = 8f;           // å›è»¢æ”»æ’ƒå¾Œã€æ¬¡ã«å›è»¢æ”»æ’ƒã‚’é¸ã¹ã‚‹ã¾ã§ã®æ™‚é–“
 
-    // —‰ºUŒ‚
-    [Header("—‰ºUŒ‚")]
-    [SerializeField] private float slamTelegraph = 0.9f;          // —‰ºUŒ‚‚Ì‘O’›ŠÔ
-    [SerializeField] private float slamLockTime = 0.3f;            // ’…’n“_‚ğŒÅ’è‚·‚éÅŒã‚ÌŠÔ
-    [SerializeField] private float diveTime = 0.35f;               // ƒ{ƒX‚ª—‰º‚·‚éŠÔ
-    [SerializeField] private int diveDamage = 1;                   // —‰º’†‚Éƒ{ƒX–{‘Ì‚ÖG‚ê‚½‚Æ‚«‚Ìƒ_ƒ[ƒW
-    [SerializeField] private float downTimeAfterSlam = 3f;         // —‰ºUŒ‚Œã‚ÌUŒ‚ƒ`ƒƒƒ“ƒX‚ÌŠÔ
+    // è½ä¸‹æ”»æ’ƒ
+    [Header("è½ä¸‹æ”»æ’ƒ")]
+    // è½ä¸‹æ”»æ’ƒã®äºˆå‘Šæ™‚é–“ã¯ç§»å‹•ã¨åŒã˜ moveTime(3ç§’) ã‚’ä½¿ç”¨ã™ã‚‹
+    [SerializeField] private int diveDamage = 1;                   // è½ä¸‹ä¸­ã«ãƒœã‚¹æœ¬ä½“ã¸è§¦ã‚ŒãŸã¨ãã®ãƒ€ãƒ¡ãƒ¼ã‚¸
+    [SerializeField] private float downTimeAfterSlam = 3f;         // è½ä¸‹æ”»æ’ƒå¾Œã®æ”»æ’ƒãƒãƒ£ãƒ³ã‚¹ã®æ™‚é–“
 
-    // ÕŒ‚”g(” ‚Ì•Ç‚É‰ˆ‚Á‚ÄA—¼‘¤‚Ö‘–‚é)
-    [Header("ÕŒ‚”g(” ‚Ì•Ç‚É‰ˆ‚Á‚ÄA—¼‘¤‚Ö‘–‚é)")]
-    [SerializeField] private float waveSpeed = 10f;                // ÕŒ‚”g‚ªi‚Ş‘¬“x
-    [SerializeField] private float waveRadius = 0.9f;               // ÕŒ‚”g‚Ì“–‚½‚è”»’è‚Ì‘å‚«‚³
-    [SerializeField] private float waveInset = 0.45f;               // •Ç‚©‚çÕŒ‚”g‚Ì’†S‚Ü‚Å‚Ì‹——£
-    [SerializeField] private int waveDamage = 1;                    // ÕŒ‚”g‚ªƒvƒŒƒCƒ„[‚É—^‚¦‚éƒ_ƒ[ƒW
+    // è¡æ’ƒæ³¢(ç®±ã®å£ã«æ²¿ã£ã¦ã€ä¸¡å´ã¸èµ°ã‚‹)
+    [Header("è¡æ’ƒæ³¢(ç®±ã®å£ã«æ²¿ã£ã¦ã€ä¸¡å´ã¸èµ°ã‚‹)")]
+    [SerializeField] private float waveSpeed = 10f;                // è¡æ’ƒæ³¢ãŒé€²ã‚€é€Ÿåº¦
+    [SerializeField] private float waveRadius = 0.9f;               // è¡æ’ƒæ³¢ã®å½“ãŸã‚Šåˆ¤å®šã®å¤§ãã•
+    [SerializeField] private float waveInset = 0.12f;               // éšœå®³ç‰©ã®è¼ªéƒ­ã‹ã‚‰è¡æ’ƒæ³¢ã®ä¸­å¿ƒã¾ã§ã®è·é›¢
+    [SerializeField] private float wavePathSampleSpacing = 0.15f;   // è¼ªéƒ­ã‚’å–å¾—ã™ã‚‹é–“éš”ã€‚å°ã•ã„ã»ã©å‡¹å‡¸ã‚’ç´°ã‹ãå†ç¾
+    [SerializeField] private int waveDamage = 1;                    // è¡æ’ƒæ³¢ãŒãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ä¸ãˆã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸
 
-    // ‰“‹——£UŒ‚(’e)
-    [Header("‰“‹——£UŒ‚(’e)")]
-    [SerializeField] private float shootTelegraph = 0.5f;          // ’e‚ğŒ‚‚Â‘O‚Ì—\’›ŠÔ
-    [SerializeField] private int shotCount = 3;                     // ˆê“x‚ÌUŒ‚‚Å”­Ë‚·‚é’e‚Ì”
-    [SerializeField] private float shotInterval = 0.12f;            // ’e‚ğ”­Ë‚·‚éŠÔŠu
-    [SerializeField] private float bulletSpeed = 14f;               // ’e‚ÌˆÚ“®‘¬“x
-    [SerializeField] private int bulletDamage = 1;                  // ’e‚ªƒvƒŒƒCƒ„[‚É—^‚¦‚éƒ_ƒ[ƒW
-    [SerializeField] private float downTimeAfterShoot = 2f;         // ‰“‹——£UŒ‚Œã‚ÌUŒ‚ƒ`ƒƒƒ“ƒX‚ÌŠÔ
-    [SerializeField] private LayerMask blockLayers;                 // ’e‚ª~‚Ü‚é•ÇE‘«ê‚ÌƒŒƒCƒ„[(StickWall ‚Æ NoStickWall)
+    // é è·é›¢æ”»æ’ƒ(å¼¾)
+    [Header("é è·é›¢æ”»æ’ƒ(å¼¾)")]
+    [SerializeField] private float shootTelegraph = 0.5f;          // å¼¾ã‚’æ’ƒã¤å‰ã®äºˆå…†æ™‚é–“
+    [SerializeField] private int shotCount = 3;                     // ä¸€åº¦ã®æ”»æ’ƒã§ç™ºå°„ã™ã‚‹å¼¾ã®æ•°
+    [SerializeField] private float shotInterval = 0.12f;            // å¼¾ã‚’ç™ºå°„ã™ã‚‹é–“éš”
+    [SerializeField] private float bulletSpeed = 14f;               // å¼¾ã®ç§»å‹•é€Ÿåº¦
+    [SerializeField] private int bulletDamage = 1;                  // å¼¾ãŒãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ä¸ãˆã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸
+    [SerializeField] private float downTimeAfterShoot = 2f;         // é è·é›¢æ”»æ’ƒå¾Œã®æ”»æ’ƒãƒãƒ£ãƒ³ã‚¹ã®æ™‚é–“
+    [SerializeField] private LayerMask blockLayers;                 // å¼¾ãŒæ­¢ã¾ã‚‹å£ãƒ»è¶³å ´ã®ãƒ¬ã‚¤ãƒ¤ãƒ¼(StickWall ã¨ NoStickWall)
 
-    // ‰ñ“]UŒ‚
-    [Header("‰ñ“]UŒ‚")]
-    [SerializeField] private float rotateTelegraph = 1.2f;          // ” ‚ğ‰ñ“]‚³‚¹‚é‘O‚Ì—\’›ŠÔ
+    // å›è»¢æ”»æ’ƒ
+    [Header("å›è»¢æ”»æ’ƒ")]
+    [SerializeField] private float rotateTelegraph = 1.2f;          // ç®±ã‚’å›è»¢ã•ã›ã‚‹å‰ã®äºˆå…†æ™‚é–“
 
-    // Œ‚”j
-    [Header("Œ‚”j")]
-    [SerializeField] private float defeatDelay = 0.8f;              // Œ‚”j‰‰oŒãAŒ‹‰Ê‰æ–Ê‚ğo‚·‚Ü‚Å‚ÌŠÔ
+    // æ’ƒç ´
+    [Header("æ’ƒç ´")]
+    [SerializeField] private float defeatDelay = 0.8f;              // æ’ƒç ´æ¼”å‡ºå¾Œã€çµæœç”»é¢ã‚’å‡ºã™ã¾ã§ã®æ™‚é–“
 
-    [SerializeField] private Material lineMaterial;                 // —‰ºUŒ‚‚Ì‘O’›‚Ég‚¤ü‚Ì‘fŞ
 
-    // Œ»İ‚Ìƒ{ƒX‚Ì‘Ì—Í
+    // ç¾åœ¨ã®ãƒœã‚¹ã®ä½“åŠ›
     private float hp;
 
-    // ƒ{ƒX‚ªŒ‚”j‚³‚ê‚½‚©‚Ç‚¤‚©
+    // ãƒœã‚¹ãŒæ’ƒç ´ã•ã‚ŒãŸã‹ã©ã†ã‹
     private bool defeated;
 
-    // UŒ‚ƒ^ƒCƒ~ƒ“ƒO(ƒ_ƒEƒ“)’†‚©‚Ç‚¤‚©
+    // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°(ãƒ€ã‚¦ãƒ³)ä¸­ã‹ã©ã†ã‹
     private bool vulnerable;
 
-    // —‰º’†‚ÉAƒvƒŒƒCƒ„[‚ÖÚGƒ_ƒ[ƒW‚ğ—^‚¦‚é‚©‚Ç‚¤‚©
+    // è½ä¸‹ä¸­ã«ã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¸æ¥è§¦ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ä¸ãˆã‚‹ã‹ã©ã†ã‹
     private bool contactEnabled;
 
-    // Œ»İƒ{ƒX‚ª‚¢‚é•Ç
+    // ç¾åœ¨ãƒœã‚¹ãŒã„ã‚‹å£
     private Wall currentWall = Wall.Floor;
 
-    // ƒ{ƒX‚Ì‰ŠúˆÊ’u
+    // ãƒœã‚¹ã®åˆæœŸä½ç½®
     private Vector3 startPos;
 
-    // ƒ{ƒX‚Ì‘å‚«‚³(‰¡•‚Æ‚‚³‚Ì”¼•ª)
+    // ãƒœã‚¹ã®å¤§ãã•(æ¨ªå¹…ã¨é«˜ã•ã®åŠåˆ†)
     private Vector2 halfSize = Vector2.one;
 
-    // ƒ{ƒX‚Ì“–‚½‚è”»’è
+    // ãƒœã‚¹ã®å½“ãŸã‚Šåˆ¤å®šã¨ç‰©ç†æ¼”ç®—
     private Collider2D col;
+    private Rigidbody2D rb;
 
-    // ƒ{ƒX‚Ì‰æ‘œ‚ğ•\¦‚·‚éƒRƒ“ƒ|[ƒlƒ“ƒg
+    // ãƒ¯ãƒ¼ãƒ—å‡ºç¾ä½ç½®ã‚’ç¤ºã™ãƒãƒ¼ã‚«ãƒ¼(é€šå¸¸ç§»å‹•ã¯é’ã€è½ä¸‹æ”»æ’ƒã¯èµ¤)
+    private GameObject spawnMarker;
+
+    // ãƒœã‚¹ã®ç”»åƒã‚’è¡¨ç¤ºã™ã‚‹ã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆ
     private SpriteRenderer sr;
 
-    // ƒ{ƒX‚Ì’Êí‚ÌF
+    // ãƒœã‚¹ã®é€šå¸¸æ™‚ã®è‰²
     private Color baseColor = Color.white;
 
-    // ƒ{ƒX‚ÌŒ»İ‚Ì•\¦F
+    // ãƒœã‚¹ã®ç¾åœ¨ã®è¡¨ç¤ºè‰²
     private Color brainColor = Color.white;
 
-    // ƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚Ì“_–ÅI—¹
+    // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®ç‚¹æ»…çµ‚äº†æ™‚åˆ»
     private float flashUntil;
 
-    // ƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚É•\¦‚·‚éF
+    // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã«è¡¨ç¤ºã™ã‚‹è‰²
     private Color flashColor = Color.white;
 
-    // Œ»İ‰æ–Ê‚É•\¦‚·‚éUŒ‚‚Ìà–¾
+    // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸæ™‚é–“
+    private float lastHitTime = -10f;
+
+    // ç‚¹æ»…ã™ã‚‹æ™‚é–“
+    private float hitFlashDuration = 0.4f;
+
+    // ç¾åœ¨ç”»é¢ã«è¡¨ç¤ºã™ã‚‹æ”»æ’ƒã®èª¬æ˜
     private string label;
 
-    // —‰ºUŒ‚‚Ì‘O’›‚ğ•\¦‚·‚éü
-    private LineRenderer slamLine;
-
-    // —‰ºUŒ‚‚Ì’…’n“_‚ğ•\¦‚·‚éƒ}[ƒJ[
+    // è½ä¸‹æ”»æ’ƒã®ç€åœ°ç‚¹ã‚’è¡¨ç¤ºã™ã‚‹èµ¤ã„ãƒãƒ¼ã‚«ãƒ¼
     private GameObject marker;
 
-    // ƒvƒŒƒCƒ„[‚ÌTransform
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®Transform
     private Transform player;
 
-    // ƒvƒŒƒCƒ„[‚Ì“–‚½‚è”»’è
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®å½“ãŸã‚Šåˆ¤å®š
     private Collider2D playerCol;
 
-    // ƒvƒŒƒCƒ„[‚Ì‘Ì—Í‚ğŠÇ—‚·‚éƒRƒ“ƒ|[ƒlƒ“ƒg
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½“åŠ›ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆ
     private PlayerHealth playerHealth;
 
-    // ƒ{ƒX‚Ìs“®‚ğŠÇ—‚·‚éƒRƒ‹[ƒ`ƒ“
+    // ãƒœã‚¹ã®è¡Œå‹•ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ«ãƒ¼ãƒãƒ³
     private Coroutine brain;
 
-    // ‰æ–Ê‚ÉUŒ‚–¼‚È‚Ç‚ğ•\¦‚·‚é‚½‚ß‚Ì•¶šİ’è
+    // ç”»é¢ã«æ”»æ’ƒåãªã©ã‚’è¡¨ç¤ºã™ã‚‹ãŸã‚ã®æ–‡å­—è¨­å®š
     private GUIStyle bigStyle;
 
-    // ‘O‚ÌƒtƒŒ[ƒ€‚Å” ‚ª‰ñ“]‚µ‚Ä‚¢‚½‚©‚Ç‚¤‚©
+    // è½ä¸‹ä¸­ã‹ã€ç€åœ°ã—ãŸã‹ã‚’ç®¡ç†ã™ã‚‹
+    private bool isFalling;
+    private bool hasLanded;
+
+    // å‰ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§ç®±ãŒå›è»¢ã—ã¦ã„ãŸã‹ã©ã†ã‹
     private bool wasRotating;
 
-    // Ÿ‚É‰ñ“]UŒ‚‚ğ‘I‘ğ‚Å‚«‚é
+    // æ¬¡ã«å›è»¢æ”»æ’ƒã‚’é¸æŠã§ãã‚‹æ™‚åˆ»
     private float nextRotateTime;
 
     void Awake()
     {
-        // ‚±‚Ìƒ{ƒX‚ğA‘¼‚ÌƒXƒNƒŠƒvƒg‚©‚çQÆ‚Å‚«‚é‚æ‚¤‚É‚·‚é
+        // ã“ã®ãƒœã‚¹ã‚’ã€ä»–ã®ã‚¹ã‚¯ãƒªãƒ—ãƒˆã‹ã‚‰å‚ç…§ã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹
         Instance = this;
 
-        // ƒ{ƒX©g‚Ì“–‚½‚è”»’è‚ğæ“¾
+        // ãƒœã‚¹è‡ªèº«ã®å½“ãŸã‚Šåˆ¤å®šã‚’å–å¾—
         col = GetComponent<Collider2D>();
 
-        // qƒIƒuƒWƒFƒNƒg‚àŠÜ‚ß‚ÄASpriteRenderer‚ğæ“¾
+        // å­ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚‚å«ã‚ã¦ã€SpriteRendererã‚’å–å¾—
         sr = GetComponentInChildren<SpriteRenderer>();
 
-        // SpriteRenderer‚ª‘¶İ‚·‚éê‡A‰Šú‚ÌF‚ğ•Û‘¶
+        // SpriteRendererãŒå­˜åœ¨ã™ã‚‹å ´åˆã€åˆæœŸã®è‰²ã‚’ä¿å­˜
         if (sr != null) baseColor = sr.color;
 
-        // ƒ{ƒX‚Ì•\¦F‚ğ‰ŠúF‚Éİ’è
+        // ãƒœã‚¹ã®è¡¨ç¤ºè‰²ã‚’åˆæœŸè‰²ã«è¨­å®š
         brainColor = baseColor;
 
-        // Rigidbody2D‚ğæ“¾
-        var rb = GetComponent<Rigidbody2D>();
+        // Rigidbody2Dã‚’å–å¾—
+        rb = GetComponent<Rigidbody2D>();
 
-        // Rigidbody2D‚ª‚È‚¯‚ê‚Î’Ç‰Á‚·‚é
+        // Rigidbody2DãŒãªã‘ã‚Œã°è¿½åŠ ã™ã‚‹
         if (rb == null) rb = gameObject.AddComponent<Rigidbody2D>();
 
-        // •¨—‰‰Z‚É‚æ‚éˆÚ“®‚ğs‚í‚¸AƒXƒNƒŠƒvƒg‚ÅˆÊ’u‚ğ§Œä‚·‚é
+        // é€šå¸¸æ™‚ã¯ã‚¹ã‚¯ãƒªãƒ—ãƒˆã§ä½ç½®ã‚’åˆ¶å¾¡ã™ã‚‹
         rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
-        // ƒ{ƒX‚Ì‰ŠúˆÊ’u‚ğ•Û‘¶
+        // ãƒœã‚¹ã®åˆæœŸä½ç½®ã‚’ä¿å­˜
         startPos = transform.position;
 
-        // ƒ{ƒX‚Ì‘Ì—Í‚ğÅ‘å‘Ì—Í‚Éİ’è
+        // ãƒœã‚¹ã®ä½“åŠ›ã‚’æœ€å¤§ä½“åŠ›ã«è¨­å®š
         hp = maxHp;
 
-        // —‰ºUŒ‚‚Ì‘O’›‚ğ•\¦‚·‚éü‚ğì¬
-        slamLine = MakeLine();
+        // æ—§ç€åœ°ç‚¹ãƒãƒ¼ã‚«ãƒ¼ã¯ä½œæˆã—ãªã„ã€‚è½ä¸‹æ”»æ’ƒã§ã¯å‡ºç¾ä½ç½®ãƒãƒ¼ã‚«ãƒ¼ã®ã¿ã‚’ä½¿ã†ã€‚
+        marker = null;
 
-        // —‰ºUŒ‚‚Ì’…’n“_‚ğ•\¦‚·‚éƒ}[ƒJ[‚ğì¬
-        marker = MakeMarker();
+        // ãƒ¯ãƒ¼ãƒ—å¾Œã®å‡ºç¾ä½ç½®ã‚’è¡¨ç¤ºã™ã‚‹ãƒãƒ¼ã‚«ãƒ¼ã‚’ä½œæˆ
+        spawnMarker = MakeMarker("BossTeleportSpawnMarker");
     }
 
     void Start()
     {
-        // Playerƒ^ƒO‚ª•t‚¢‚½ƒIƒuƒWƒFƒNƒg‚ğŒŸõ
+        // Playerã‚¿ã‚°ãŒä»˜ã„ãŸã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’æ¤œç´¢
         var p = GameObject.FindWithTag("Player");
 
-        // ƒvƒŒƒCƒ„[‚ªŒ©‚Â‚©‚Á‚½ê‡A•K—v‚ÈƒRƒ“ƒ|[ƒlƒ“ƒg‚ğæ“¾
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒè¦‹ã¤ã‹ã£ãŸå ´åˆã€å¿…è¦ãªã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆã‚’å–å¾—
         if (p != null)
         {
-            // ƒvƒŒƒCƒ„[‚ÌTransform‚ğæ“¾
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®Transformã‚’å–å¾—
             player = p.transform;
 
-            // ƒvƒŒƒCƒ„[‚Ì“–‚½‚è”»’è‚ğæ“¾
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®å½“ãŸã‚Šåˆ¤å®šã‚’å–å¾—
             playerCol = p.GetComponent<Collider2D>();
 
-            // ƒvƒŒƒCƒ„[‚Ì‘Ì—Í‚ğŠÇ—‚·‚éƒRƒ“ƒ|[ƒlƒ“ƒg‚ğæ“¾
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½“åŠ›ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ³ãƒãƒ¼ãƒãƒ³ãƒˆã‚’å–å¾—
             playerHealth = p.GetComponent<PlayerHealth>();
         }
 
-        // ” ‚Ì‘å‚«‚³‚É‡‚í‚¹‚ÄAƒ{ƒX‚Ì‰Šú”z’u‚ğŒvZ
+        // ç®±ã®å¤§ãã•ã«åˆã‚ã›ã¦ã€ãƒœã‚¹ã®åˆæœŸé…ç½®ã‚’è¨ˆç®—
         RefreshLayout();
 
-        // ƒ{ƒX‚ğ‰ŠúˆÊ’u‚É”z’u
+        // ãƒœã‚¹ã‚’åˆæœŸä½ç½®ã«é…ç½®
         transform.position = startPos;
 
-        // ˆÊ’u‚Ì•ÏX‚ğ•¨—‰‰Z‚É”½‰f
+        // ä½ç½®ã®å¤‰æ›´ã‚’ç‰©ç†æ¼”ç®—ã«åæ˜ 
         Physics2D.SyncTransforms();
 
-        // ƒ{ƒX‚Ìs“®‚ğŠÇ—‚·‚éƒRƒ‹[ƒ`ƒ“‚ğŠJn
+        // ãƒœã‚¹ã®è¡Œå‹•ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ«ãƒ¼ãƒãƒ³ã‚’é–‹å§‹
         brain = StartCoroutine(Brain());
     }
 
     void OnDestroy()
     {
-        // ’…’n“_‚ğ•\¦‚·‚éƒ}[ƒJ[‚ªc‚Á‚Ä‚¢‚ê‚Îíœ
+        // ãƒãƒ¼ã‚«ãƒ¼ãŒæ®‹ã£ã¦ã„ã‚Œã°å‰Šé™¤
         if (marker != null) Destroy(marker);
+        if (spawnMarker != null) Destroy(spawnMarker);
 
-        // ‚±‚Ìƒ{ƒX‚ªŒ»İ‚ÌInstance‚È‚çAQÆ‚ğ‰ğœ
+        // ã“ã®ãƒœã‚¹ãŒç¾åœ¨ã®Instanceãªã‚‰ã€å‚ç…§ã‚’è§£é™¤
         if (Instance == this) Instance = null;
     }
 
-    // ” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğæ“¾‚·‚é
+    // ç®±ã®å†…å´ã®ç¯„å›²ã‚’å–å¾—ã™ã‚‹
     Rect Inner()
     {
-        // ” ‚Ì‰ñ“]‚â‘å‚«‚³‚ğŠÇ—‚·‚éArenaRotator‚ğæ“¾
+        // ç®±ã®å›è»¢ã‚„å¤§ãã•ã‚’ç®¡ç†ã™ã‚‹ArenaRotatorã‚’å–å¾—
         var arena = ArenaRotator.Instance;
 
-        // ArenaRotator‚ª‘¶İ‚·‚ê‚ÎA” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğ•Ô‚·
-        // ‘¶İ‚µ‚È‚¯‚ê‚ÎA’†S‚ª(0, 0)A•‚Æ‚‚³‚ª16‚Ì”ÍˆÍ‚ğ•Ô‚·
+        // ArenaRotatorãŒå­˜åœ¨ã™ã‚Œã°ã€ç®±ã®å†…å´ã®ç¯„å›²ã‚’è¿”ã™
+        // å­˜åœ¨ã—ãªã‘ã‚Œã°ã€ä¸­å¿ƒãŒ(0, 0)ã€å¹…ã¨é«˜ã•ãŒ16ã®ç¯„å›²ã‚’è¿”ã™
         return arena != null ? arena.InnerBounds : new Rect(-8f, -8f, 16f, 16f);
     }
 
     void RefreshLayout()
     {
-        // SpriteRenderer‚ª‚ ‚ê‚Î‰æ‘œ‚Ì‘å‚«‚³‚ğæ“¾‚µA‚È‚¯‚ê‚Î“–‚½‚è”»’è‚Ì‘å‚«‚³‚ğæ“¾
+        // SpriteRendererãŒã‚ã‚Œã°ç”»åƒã®å¤§ãã•ã‚’å–å¾—ã—ã€ãªã‘ã‚Œã°å½“ãŸã‚Šåˆ¤å®šã®å¤§ãã•ã‚’å–å¾—
         Vector3 ext = sr != null ? sr.bounds.extents : col.bounds.extents;
 
-        // ƒ{ƒX‚Ì‰¡•‚Æ‚‚³‚Ì”¼•ª‚ğ•Û‘¶
+        // ãƒœã‚¹ã®æ¨ªå¹…ã¨é«˜ã•ã®åŠåˆ†ã‚’ä¿å­˜
         halfSize = new Vector2(ext.x, ext.y);
 
-        // °‚Ì’†‰›‚ğƒ{ƒX‚Ì‰ŠúˆÊ’u‚Éİ’è
-        // ZÀ•W‚ÍŒ»İ‚ÌˆÊ’u‚ğ‚»‚Ì‚Ü‚Üg—p‚·‚é
+        // åºŠã®ä¸­å¤®ã‚’ãƒœã‚¹ã®åˆæœŸä½ç½®ã«è¨­å®š
+        // Zåº§æ¨™ã¯ç¾åœ¨ã®ä½ç½®ã‚’ãã®ã¾ã¾ä½¿ç”¨ã™ã‚‹
         startPos = new Vector3(
             SpotOn(Wall.Floor, 0.5f).x,
             SpotOn(Wall.Floor, 0.5f).y,
             transform.position.z
         );
 
-        // ƒ{ƒX‚ªÅ‰‚É‚¢‚é•Ç‚ğ°‚Éİ’è
+        // ãƒœã‚¹ãŒæœ€åˆã«ã„ã‚‹å£ã‚’åºŠã«è¨­å®š
         currentWall = Wall.Floor;
     }
-    // w’è‚µ‚½•Ç‚Ìã‚ÅAƒ{ƒX‚Ì’†S‚ª—ˆ‚éÀ•W‚ğŒvZ‚·‚é
-    // u‚Í•Ç‚ÌˆÊ’u‚ğ•\‚·’l‚ÅA0‚ª’[A1‚ª”½‘Î‘¤‚Ì’[
+    // æŒ‡å®šã—ãŸå£ã®ä¸Šã§ã€ãƒœã‚¹ã®ä¸­å¿ƒãŒæ¥ã‚‹åº§æ¨™ã‚’è¨ˆç®—ã™ã‚‹
+    // uã¯å£ã®ä½ç½®ã‚’è¡¨ã™å€¤ã§ã€0ãŒç«¯ã€1ãŒåå¯¾å´ã®ç«¯
     Vector2 SpotOn(Wall wall, float u)
     {
-        // ” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğæ“¾
+        // ç®±ã®å†…å´ã®ç¯„å›²ã‚’å–å¾—
         Rect r = Inner();
 
-        // ƒ{ƒX‚ª•Ç‚©‚ç‚Í‚İo‚³‚È‚¢‚æ‚¤‚ÉAƒ{ƒX‚Ì‘å‚«‚³•ª‚¾‚¯”ÍˆÍ‚ğ“à‘¤‚É‚·‚é
+        // ãƒœã‚¹ãŒå£ã‹ã‚‰ã¯ã¿å‡ºã•ãªã„ã‚ˆã†ã«ã€ãƒœã‚¹ã®å¤§ãã•åˆ†ã ã‘ç¯„å›²ã‚’å†…å´ã«ã™ã‚‹
         float minX = r.xMin + halfSize.x, maxX = r.xMax - halfSize.x;
         float minY = r.yMin + halfSize.y, maxY = r.yMax - halfSize.y;
 
-        // w’è‚³‚ê‚½•Ç‚É‰‚¶‚ÄAƒ{ƒX‚Ì’†SÀ•W‚ğŒvZ
+        // æŒ‡å®šã•ã‚ŒãŸå£ã«å¿œã˜ã¦ã€ãƒœã‚¹ã®ä¸­å¿ƒåº§æ¨™ã‚’è¨ˆç®—
         switch (wall)
         {
-            // °: ¶‚©‚ç‰E‚ÖˆÚ“®
+            // åºŠ: å·¦ã‹ã‚‰å³ã¸ç§»å‹•
             case Wall.Floor:
                 return new Vector2(Mathf.Lerp(minX, maxX, u), minY);
 
-            // “Vˆä: ¶‚©‚ç‰E‚ÖˆÚ“®
+            // å¤©äº•: å·¦ã‹ã‚‰å³ã¸ç§»å‹•
             case Wall.Ceiling:
                 return new Vector2(Mathf.Lerp(minX, maxX, u), maxY);
 
-            // ¶‚Ì•Ç: ‰º‚©‚çã‚ÖˆÚ“®
+            // å·¦ã®å£: ä¸‹ã‹ã‚‰ä¸Šã¸ç§»å‹•
             case Wall.Left:
                 return new Vector2(minX, Mathf.Lerp(minY, maxY, u));
 
-            // ‰E‚Ì•Ç: ‰º‚©‚çã‚ÖˆÚ“®
+            // å³ã®å£: ä¸‹ã‹ã‚‰ä¸Šã¸ç§»å‹•
             default:
                 return new Vector2(maxX, Mathf.Lerp(minY, maxY, u));
         }
     }
 
-    // ƒvƒŒƒCƒ„[‚ÌˆÊ’u‚ğAw’è‚µ‚½•Ç‚Ìã‚ÌˆÊ’u(0`1)‚É•ÏŠ·‚·‚é
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½ç½®ã‚’ã€æŒ‡å®šã—ãŸå£ã®ä¸Šã®ä½ç½®(0ï½1)ã«å¤‰æ›ã™ã‚‹
     float ProjectU(Wall wall, Vector2 p)
     {
-        // ” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğæ“¾
+        // ç®±ã®å†…å´ã®ç¯„å›²ã‚’å–å¾—
         Rect r = Inner();
 
-        // °‚Ü‚½‚Í“Vˆä‚È‚ç‰¡•ûŒüA‚»‚êˆÈŠO‚È‚çc•ûŒü‚Æ‚µ‚Äˆµ‚¤
+        // åºŠã¾ãŸã¯å¤©äº•ãªã‚‰æ¨ªæ–¹å‘ã€ãã‚Œä»¥å¤–ãªã‚‰ç¸¦æ–¹å‘ã¨ã—ã¦æ‰±ã†
         bool horizontal = wall == Wall.Floor || wall == Wall.Ceiling;
 
-        // •Ç‚Ì•ûŒü‚É‡‚í‚¹‚ÄAƒvƒŒƒCƒ„[‚ÌÀ•W‚ğæ“¾
+        // å£ã®æ–¹å‘ã«åˆã‚ã›ã¦ã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®åº§æ¨™ã‚’å–å¾—
         float v = horizontal ? p.x : p.y;
 
-        // ƒ{ƒX‚Ì‘å‚«‚³‚ğl—¶‚µ‚ÄAˆÚ“®‚Å‚«‚é”ÍˆÍ‚ğŒvZ
+        // ãƒœã‚¹ã®å¤§ãã•ã‚’è€ƒæ…®ã—ã¦ã€ç§»å‹•ã§ãã‚‹ç¯„å›²ã‚’è¨ˆç®—
         float min = horizontal ? r.xMin + halfSize.x : r.yMin + halfSize.y;
         float max = horizontal ? r.xMax - halfSize.x : r.yMax - halfSize.y;
 
-        // ƒvƒŒƒCƒ„[‚ÌˆÊ’u‚ğ0`1‚Ì”ÍˆÍ‚É•ÏŠ·‚µ‚Ä•Ô‚·
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½ç½®ã‚’0ï½1ã®ç¯„å›²ã«å¤‰æ›ã—ã¦è¿”ã™
         return Mathf.InverseLerp(min, max, v);
     }
 
-    // w’è‚³‚ê‚½•Ç‚Ì”½‘Î‘¤‚É‚ ‚é•Ç‚ğæ“¾‚·‚é
+    // æŒ‡å®šã•ã‚ŒãŸå£ã®åå¯¾å´ã«ã‚ã‚‹å£ã‚’å–å¾—ã™ã‚‹
     static Wall Opposite(Wall w)
     {
-        // •Ç‚Ì”Ô†‚É2‚ğ‘«‚µ‚Ä4‚ÅŠ„‚Á‚½—]‚è‚ğ•Ô‚·
-        // °‚È‚ç“VˆäA‰E‚È‚ç¶A“Vˆä‚È‚ç°A¶‚È‚ç‰E‚É‚È‚é
+        // å£ã®ç•ªå·ã«2ã‚’è¶³ã—ã¦4ã§å‰²ã£ãŸä½™ã‚Šã‚’è¿”ã™
+        // åºŠãªã‚‰å¤©äº•ã€å³ãªã‚‰å·¦ã€å¤©äº•ãªã‚‰åºŠã€å·¦ãªã‚‰å³ã«ãªã‚‹
         return (Wall)(((int)w + 2) % 4);
     }
 
-    // ƒ{ƒX‚ÌˆÊ’u‚ğw’è‚µ‚½À•W‚ÉˆÚ“®‚³‚¹‚é
+    // ãƒœã‚¹ã®ä½ç½®ã‚’æŒ‡å®šã—ãŸåº§æ¨™ã«ç§»å‹•ã•ã›ã‚‹
     void SetPos(Vector2 p)
     {
-        // XÀ•W‚ÆYÀ•W‚ğw’è‚µ‚½ˆÊ’u‚É•ÏX‚·‚é
-        // ZÀ•W‚ÍŒ»İ‚Ì’l‚ğˆÛ‚·‚é
+        // Xåº§æ¨™ã¨Yåº§æ¨™ã‚’æŒ‡å®šã—ãŸä½ç½®ã«å¤‰æ›´ã™ã‚‹
+        // Zåº§æ¨™ã¯ç¾åœ¨ã®å€¤ã‚’ç¶­æŒã™ã‚‹
         transform.position = new Vector3(p.x, p.y, transform.position.z);
 
-        // Transform‚Ì•ÏX‚ğ•¨—‰‰Z‚É”½‰f‚³‚¹‚é
+        // Transformã®å¤‰æ›´ã‚’ç‰©ç†æ¼”ç®—ã«åæ˜ ã•ã›ã‚‹
         Physics2D.SyncTransforms();
     }
 
-    // –ˆƒtƒŒ[ƒ€Às‚·‚éˆ—
+    // æ¯ãƒ•ãƒ¬ãƒ¼ãƒ å®Ÿè¡Œã™ã‚‹å‡¦ç†
     void Update()
     {
-        // •ÒWƒ‚[ƒh’†Aƒ{ƒXŒ‚”jŒãA‚Ü‚½‚ÍƒQ[ƒ€‚ªˆê’â~’†‚È‚çˆ—‚ğI—¹
+        // ç·¨é›†ãƒ¢ãƒ¼ãƒ‰ä¸­ã€ãƒœã‚¹æ’ƒç ´å¾Œã€ã¾ãŸã¯ã‚²ãƒ¼ãƒ ãŒä¸€æ™‚åœæ­¢ä¸­ãªã‚‰å‡¦ç†ã‚’çµ‚äº†
         if (LevelEditor.IsEditing || defeated || Time.timeScale == 0f) return;
 
-        // ” ‚Ì‰ñ“]‚ğŠÇ—‚·‚éArenaRotator‚ğæ“¾
+        // ç®±ã®å›è»¢ã‚’ç®¡ç†ã™ã‚‹ArenaRotatorã‚’å–å¾—
         var arena = ArenaRotator.Instance;
 
-        // Œ»İA” ‚ª‰ñ“]‚µ‚Ä‚¢‚é‚©‚Ç‚¤‚©‚ğŠm”F
+        // ç¾åœ¨ã€ç®±ãŒå›è»¢ã—ã¦ã„ã‚‹ã‹ã©ã†ã‹ã‚’ç¢ºèª
         bool rotatingNow = arena != null && arena.IsRotating;
 
-        // ‘O‚ÌƒtƒŒ[ƒ€‚Å‚Í‰ñ“]’†‚ÅAŒ»İ‚Í‰ñ“]‚ªI‚í‚Á‚Ä‚¢‚éê‡
-        // Ÿ‚Ì‰ñ“]UŒ‚‚ğ‘I‚×‚é‚Ü‚Å‚Ì‘Ò‚¿ŠÔ‚ğİ’è
+        // å‰ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§ã¯å›è»¢ä¸­ã§ã€ç¾åœ¨ã¯å›è»¢ãŒçµ‚ã‚ã£ã¦ã„ã‚‹å ´åˆ
+        // æ¬¡ã®å›è»¢æ”»æ’ƒã‚’é¸ã¹ã‚‹ã¾ã§ã®å¾…ã¡æ™‚é–“ã‚’è¨­å®š
         if (wasRotating && !rotatingNow)
             nextRotateTime = Time.time + rotateCooldown;
 
-        // Œ»İ‚Ì‰ñ“]ó‘Ô‚ğ•Û‘¶
+        // ç¾åœ¨ã®å›è»¢çŠ¶æ…‹ã‚’ä¿å­˜
         wasRotating = rotatingNow;
 
-        // ƒvƒŒƒCƒ„[‚Æƒ{ƒX‚ÌÚG‚ğŠm”F‚µA•K—v‚È‚çƒ_ƒ[ƒW‚ğ—^‚¦‚é
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨ãƒœã‚¹ã®æ¥è§¦ã‚’ç¢ºèªã—ã€å¿…è¦ãªã‚‰ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ä¸ãˆã‚‹
         CheckContact();
     }
 
-    // –ˆƒtƒŒ[ƒ€‚ÌÅŒã‚ÉAƒ{ƒX‚ÌF‚ğXV‚·‚é
+    // æ¯ãƒ•ãƒ¬ãƒ¼ãƒ ã®æœ€å¾Œã«ã€ãƒœã‚¹ã®è‰²ã‚’æ›´æ–°ã™ã‚‹
     void LateUpdate()
     {
-        // SpriteRenderer‚ª‘¶İ‚µ‚È‚¯‚ê‚Îˆ—‚ğI—¹
+        // SpriteRendererãŒå­˜åœ¨ã—ãªã‘ã‚Œã°å‡¦ç†ã‚’çµ‚äº†
         if (sr == null) return;
 
-        // ƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚Ì“_–ÅŠÔ“à‚È‚ç“_–Å—p‚ÌF‚É‚·‚é
-        // ‚»‚êˆÈŠO‚Ìê‡‚ÍA’Êí‚Ì•\¦F‚É‚·‚é
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®ç‚¹æ»…æ™‚é–“å†…ãªã‚‰ç‚¹æ»…ç”¨ã®è‰²ã«ã™ã‚‹
+        // ãã‚Œä»¥å¤–ã®å ´åˆã¯ã€é€šå¸¸ã®è¡¨ç¤ºè‰²ã«ã™ã‚‹
         sr.color = Time.time < flashUntil ? flashColor : brainColor;
     }
 
-    // ƒ{ƒX‚ªƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚Ìˆ—
+    // ãƒœã‚¹ãŒãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®å‡¦ç†
     public void TakeDamage(int damage, int fromDir)
     {
-        // Œ‚”jÏ‚İA‚Ü‚½‚Í•ÒWƒ‚[ƒh’†‚È‚çƒ_ƒ[ƒW‚ğó‚¯•t‚¯‚È‚¢
+        // æ’ƒç ´æ¸ˆã¿ã€ã¾ãŸã¯ç·¨é›†ãƒ¢ãƒ¼ãƒ‰ä¸­ãªã‚‰ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ä»˜ã‘ãªã„
         if (defeated || LevelEditor.IsEditing) return;
 
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚È‚ç‘å‚«‚Èƒ_ƒ[ƒW”{—¦A‚»‚êˆÈŠO‚È‚ç’Êí‚Ì”{—¦‚ğİ’è
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ä¸­ãªã‚‰å¤§ããªãƒ€ãƒ¡ãƒ¼ã‚¸å€ç‡ã€ãã‚Œä»¥å¤–ãªã‚‰é€šå¸¸ã®å€ç‡ã‚’è¨­å®š
         float mult = vulnerable ? vulnerableMultiplier : normalMultiplier;
 
-        // ƒ_ƒ[ƒW‚ğ”{—¦‚É‰‚¶‚ÄŒvZ‚µA‘Ì—Í‚ª0–¢–‚É‚È‚ç‚È‚¢‚æ‚¤‚É‚·‚é
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å€ç‡ã«å¿œã˜ã¦è¨ˆç®—ã—ã€ä½“åŠ›ãŒ0æœªæº€ã«ãªã‚‰ãªã„ã‚ˆã†ã«ã™ã‚‹
         hp = Mathf.Max(0f, hp - damage * mult);
+        lastHitTime = Time.time;
 
-        // ƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚Ì“_–ÅF‚ğİ’è
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚Í”’A‚»‚êˆÈŠO‚Í­‚µˆÃ‚¢ŠDF‚É‚·‚é
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®ç‚¹æ»…è‰²ã‚’è¨­å®š
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ä¸­ã¯ç™½ã€ãã‚Œä»¥å¤–ã¯å°‘ã—æš—ã„ç°è‰²ã«ã™ã‚‹
         flashColor = vulnerable ? Color.white : new Color(0.65f, 0.65f, 0.7f);
 
-        // 0.08•bŠÔAƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚ÌF‚ğ•\¦‚·‚é
+        // 0.08ç§’é–“ã€ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®è‰²ã‚’è¡¨ç¤ºã™ã‚‹
         flashUntil = Time.time + 0.08f;
 
-        // ‘Ì—Í‚ª0ˆÈ‰º‚É‚È‚Á‚½‚çAŒ‚”jˆ—‚ğŠJn‚·‚é
+        // ä½“åŠ›ãŒ0ä»¥ä¸‹ã«ãªã£ãŸã‚‰ã€æ’ƒç ´å‡¦ç†ã‚’é–‹å§‹ã™ã‚‹
         if (hp <= 0f) StartCoroutine(DefeatRoutine());
     }
 
-    // ƒ{ƒX‚ªŒ‚”j‚³‚ê‚½‚Æ‚«‚Ìˆ—
+    // ãƒœã‚¹ãŒæ’ƒç ´ã•ã‚ŒãŸã¨ãã®å‡¦ç†
     IEnumerator DefeatRoutine()
     {
-        // Œ‚”jó‘Ô‚É‚·‚é
+        // æ’ƒç ´çŠ¶æ…‹ã«ã™ã‚‹
         defeated = true;
 
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒOó‘Ô‚ğ‰ğœ
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°çŠ¶æ…‹ã‚’è§£é™¤
         vulnerable = false;
 
-        // ƒ{ƒX‚Ìs“®‚ğŠÇ—‚·‚éƒRƒ‹[ƒ`ƒ“‚ğ’â~
+        // ãƒœã‚¹ã®è¡Œå‹•ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ«ãƒ¼ãƒãƒ³ã‚’åœæ­¢
         if (brain != null) StopCoroutine(brain);
 
-        // UŒ‚‚Ì‘O’›•\¦‚ğÁ‚·
+        // æ”»æ’ƒã®å‰å…†è¡¨ç¤ºã‚’æ¶ˆã™
         HideTelegraph();
 
-        // ”­ËÏ‚İ‚Ì’e‚ÆÕŒ‚”g‚ğ‚·‚×‚Äíœ
+        // ç™ºå°„æ¸ˆã¿ã®å¼¾ã¨è¡æ’ƒæ³¢ã‚’ã™ã¹ã¦å‰Šé™¤
         ClearAttacks();
 
-        // ƒ{ƒX‚Ì“–‚½‚è”»’è‚ğ–³Œø‚É‚·‚é
+        // ãƒœã‚¹ã®å½“ãŸã‚Šåˆ¤å®šã‚’ç„¡åŠ¹ã«ã™ã‚‹
         col.enabled = false;
 
-        // ƒ{ƒX‚ÌF‚ğŠDF‚É•ÏX
+        // ãƒœã‚¹ã®è‰²ã‚’ç°è‰²ã«å¤‰æ›´
         brainColor = Color.gray;
 
-        // ‰æ–Ê‚ÉŒ‚”jƒƒbƒZ[ƒW‚ğ•\¦
-        label = "Œ‚”j!";
+        // ç”»é¢ã«æ’ƒç ´ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’è¡¨ç¤º
+        label = "æ’ƒç ´!";
 
-        // Œ‚”j‰‰o‚Ì‚½‚ßAw’è‚µ‚½ŠÔ‚¾‚¯‘Ò‚Â
+        // æ’ƒç ´æ¼”å‡ºã®ãŸã‚ã€æŒ‡å®šã—ãŸæ™‚é–“ã ã‘å¾…ã¤
         yield return new WaitForSeconds(defeatDelay);
 
-        // RunController‚ª‘¶İ‚·‚éê‡AƒNƒŠƒAŒ‹‰Ê‚ğ•\¦‚·‚é
+        // RunControllerãŒå­˜åœ¨ã™ã‚‹å ´åˆã€ã‚¯ãƒªã‚¢çµæœã‚’è¡¨ç¤ºã™ã‚‹
         if (RunController.Instance != null)
             RunController.Instance.EndRun(true);
     }
 
-    // •ÒWƒ‚[ƒh‚É–ß‚é‚Æ‚«‚âAƒQ[ƒ€‚ğ‚â‚è’¼‚·‚Æ‚«‚Éƒ{ƒX‚Ìó‘Ô‚ğ‰Šúó‘Ô‚É–ß‚·
+    // ç·¨é›†ãƒ¢ãƒ¼ãƒ‰ã«æˆ»ã‚‹ã¨ãã‚„ã€ã‚²ãƒ¼ãƒ ã‚’ã‚„ã‚Šç›´ã™ã¨ãã«ãƒœã‚¹ã®çŠ¶æ…‹ã‚’åˆæœŸçŠ¶æ…‹ã«æˆ»ã™
     public void ResetState()
     {
-        // Às’†‚Ì‚·‚×‚Ä‚ÌƒRƒ‹[ƒ`ƒ“‚ğ’â~
+        // å®Ÿè¡Œä¸­ã®ã™ã¹ã¦ã®ã‚³ãƒ«ãƒ¼ãƒãƒ³ã‚’åœæ­¢
         StopAllCoroutines();
 
-        // ”­ËÏ‚İ‚Ì’e‚ÆÕŒ‚”g‚ğ‚·‚×‚Äíœ
+        // ç™ºå°„æ¸ˆã¿ã®å¼¾ã¨è¡æ’ƒæ³¢ã‚’ã™ã¹ã¦å‰Šé™¤
         ClearAttacks();
 
-        // UŒ‚‚Ì‘O’›•\¦‚ğÁ‚·
+        // æ”»æ’ƒã®å‰å…†è¡¨ç¤ºã‚’æ¶ˆã™
         HideTelegraph();
 
-        // Œ‚”jó‘Ô‚ğ‰ğœ
+        // æ’ƒç ´çŠ¶æ…‹ã‚’è§£é™¤
         defeated = false;
 
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒOó‘Ô‚ğ‰ğœ
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°çŠ¶æ…‹ã‚’è§£é™¤
         vulnerable = false;
 
-        // ÚG‚É‚æ‚éƒ_ƒ[ƒW”»’è‚ğ–³Œø‚É‚·‚é
+        // æ¥è§¦ã«ã‚ˆã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸åˆ¤å®šã¨è½ä¸‹çŠ¶æ…‹ã‚’è§£é™¤ã™ã‚‹
         contactEnabled = false;
+        isFalling = false;
+        hasLanded = false;
 
-        // ‘Ì—Í‚ğÅ‘å’l‚É–ß‚·
+        // ä½“åŠ›ã‚’æœ€å¤§å€¤ã«æˆ»ã™
         hp = maxHp;
 
-        // ƒ{ƒX‚Ì“–‚½‚è”»’è‚ğ—LŒø‚É‚·‚é
+        // ãƒœã‚¹ã®å½“ãŸã‚Šåˆ¤å®šã‚’æœ‰åŠ¹ã«ã™ã‚‹
         col.enabled = true;
 
-        // ‰æ–Ê‚É•\¦‚·‚éUŒ‚ƒƒbƒZ[ƒW‚ğÁ‚·
+        // Rigidbody2Dã‚’é€šå¸¸ã®åˆ¶å¾¡çŠ¶æ…‹ã«æˆ»ã™
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        // ç”»é¢ã«è¡¨ç¤ºã™ã‚‹æ”»æ’ƒãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’æ¶ˆã™
         label = null;
 
-        // ƒ_ƒ[ƒW‚É‚æ‚é“_–Åó‘Ô‚ğ‰ğœ
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã«ã‚ˆã‚‹ç‚¹æ»…çŠ¶æ…‹ã‚’è§£é™¤
         flashUntil = 0f;
 
-        // ƒ{ƒX‚ÌF‚ğ‰ŠúF‚É–ß‚·
+        // ãƒœã‚¹ã®è‰²ã‚’åˆæœŸè‰²ã«æˆ»ã™
         brainColor = baseColor;
 
-        // ‰ñ“]’†‚¾‚Á‚½‚©‚Ç‚¤‚©‚Ì‹L˜^‚ğƒŠƒZƒbƒg
+        // å›è»¢ä¸­ã ã£ãŸã‹ã©ã†ã‹ã®è¨˜éŒ²ã‚’ãƒªã‚»ãƒƒãƒˆ
         wasRotating = false;
 
-        // ‰ñ“]UŒ‚‚ÌÄg—p‘Ò‚¿ŠÔ‚ğƒŠƒZƒbƒg
+        // å›è»¢æ”»æ’ƒã®å†ä½¿ç”¨å¾…ã¡æ™‚é–“ã‚’ãƒªã‚»ãƒƒãƒˆ
         nextRotateTime = 0f;
 
-        // ” ‚Ì‘å‚«‚³‚É‡‚í‚¹‚ÄAƒ{ƒX‚Ì‰ŠúˆÊ’u‚ğÄŒvZ
+        // ç®±ã®å¤§ãã•ã«åˆã‚ã›ã¦ã€ãƒœã‚¹ã®åˆæœŸä½ç½®ã‚’å†è¨ˆç®—
         RefreshLayout();
 
-        // ƒ{ƒX‚ğ‰ŠúˆÊ’u‚É–ß‚·
+        // ãƒœã‚¹ã‚’åˆæœŸä½ç½®ã«æˆ»ã™
         transform.position = startPos;
 
-        // ˆÊ’u‚Ì•ÏX‚ğ•¨—‰‰Z‚É”½‰f
+        // ä½ç½®ã®å¤‰æ›´ã‚’ç‰©ç†æ¼”ç®—ã«åæ˜ 
         Physics2D.SyncTransforms();
 
-        // ƒ{ƒX‚Ìs“®‚ğŠÇ—‚·‚éƒRƒ‹[ƒ`ƒ“‚ğÄŠJ
+        // ãƒœã‚¹ã®è¡Œå‹•ã‚’ç®¡ç†ã™ã‚‹ã‚³ãƒ«ãƒ¼ãƒãƒ³ã‚’å†é–‹
         brain = StartCoroutine(Brain());
     }
 
-    // ”ò‚ñ‚Å‚¢‚é’e‚ÆA‘–‚Á‚Ä‚¢‚éÕŒ‚”g‚ğ‚·‚×‚Äíœ‚·‚é
+    // é£›ã‚“ã§ã„ã‚‹å¼¾ã¨ã€èµ°ã£ã¦ã„ã‚‹è¡æ’ƒæ³¢ã‚’ã™ã¹ã¦å‰Šé™¤ã™ã‚‹
     static void ClearAttacks()
     {
-        // ƒV[ƒ““à‚É‘¶İ‚·‚éBossProjectile‚ğ‚·‚×‚Äæ“¾‚µAíœ‚·‚é
+        // ã‚·ãƒ¼ãƒ³å†…ã«å­˜åœ¨ã™ã‚‹BossProjectileã‚’ã™ã¹ã¦å–å¾—ã—ã€å‰Šé™¤ã™ã‚‹
         foreach (var b in FindObjectsByType<BossProjectile>(FindObjectsSortMode.None))
             Destroy(b.gameObject);
 
-        // ƒV[ƒ““à‚É‘¶İ‚·‚éBossShockwave‚ğ‚·‚×‚Äæ“¾‚µAíœ‚·‚é
+        // ã‚·ãƒ¼ãƒ³å†…ã«å­˜åœ¨ã™ã‚‹BossShockwaveã‚’ã™ã¹ã¦å–å¾—ã—ã€å‰Šé™¤ã™ã‚‹
         foreach (var w in FindObjectsByType<BossShockwave>(FindObjectsSortMode.None))
             Destroy(w.gameObject);
     }
 
-    // —‰ºUŒ‚‚Ì‘O’›•\¦‚ğÁ‚·
+    // è½ä¸‹æ”»æ’ƒã®ãƒãƒ¼ã‚«ãƒ¼ã‚’æ¶ˆã™ï¼ˆæ—§ä»•æ§˜ã®è½ä¸‹ç·šã¯ä½¿ç”¨ã—ãªã„ï¼‰
     void HideTelegraph()
     {
-        // ‘O’›‚ğ•\¦‚·‚éü‚ª‘¶İ‚·‚ê‚ÎA”ñ•\¦‚É‚·‚é
-        if (slamLine != null) slamLine.enabled = false;
-
-        // ’…’n“_‚ğ¦‚·ƒ}[ƒJ[‚ª‘¶İ‚·‚ê‚ÎA”ñ•\¦‚É‚·‚é
         if (marker != null) marker.SetActive(false);
+        if (spawnMarker != null) spawnMarker.SetActive(false);
     }
 
-    // ƒ{ƒX‚Ìs“®‚ğŒJ‚è•Ô‚µÀs‚·‚é
+    // ãƒœã‚¹ã®è¡Œå‹•ã‚’ç¹°ã‚Šè¿”ã—å®Ÿè¡Œã™ã‚‹
     IEnumerator Brain()
     {
-        // ƒ{ƒX‚ªŒ‚”j‚³‚ê‚é‚Ü‚Ås“®‚ğŒJ‚è•Ô‚·
+        // ãƒœã‚¹ãŒæ’ƒç ´ã•ã‚Œã‚‹ã¾ã§è¡Œå‹•ã‚’ç¹°ã‚Šè¿”ã™
         while (!defeated)
         {
-            // Ÿ‚Ìs“®‚ğŠJn‚·‚é‚Ü‚Åw’è‚µ‚½ŠÔ‚¾‚¯‘Ò‚Â
+            // æ¬¡ã®è¡Œå‹•ã‚’é–‹å§‹ã™ã‚‹ã¾ã§æŒ‡å®šã—ãŸæ™‚é–“ã ã‘å¾…ã¤
             yield return new WaitForSeconds(idleTime);
 
-            // ‚Æ‚«‚Ç‚«‰ñ“]UŒ‚‚ğs‚¤
+            // ã¨ãã©ãå›è»¢æ”»æ’ƒã‚’è¡Œã†
             var arena = ArenaRotator.Instance;
 
-            // ” ‚ª‰ñ“]’†‚Å‚È‚­A‰ñ“]UŒ‚‚Ì‘Ò‚¿ŠÔ‚ªI‚í‚Á‚Ä‚¢‚ÄA
-            // İ’è‚µ‚½Šm—¦‚É“–‚½‚Á‚½ê‡A‰ñ“]UŒ‚‚ğs‚¤
+            // ç®±ãŒå›è»¢ä¸­ã§ãªãã€å›è»¢æ”»æ’ƒã®å¾…ã¡æ™‚é–“ãŒçµ‚ã‚ã£ã¦ã„ã¦ã€
+            // è¨­å®šã—ãŸç¢ºç‡ã«å½“ãŸã£ãŸå ´åˆã€å›è»¢æ”»æ’ƒã‚’è¡Œã†
             if (arena != null && !arena.IsRotating && Time.time >= nextRotateTime && Random.value < rotateChance)
                 yield return RotateAttack();
 
-            // Œ»İ‚¢‚é•Ç‚Æ‚Í•Ê‚Ì•Ç‚ÖˆÚ“®‚·‚é
+            // ç¾åœ¨ã„ã‚‹å£ã¨ã¯åˆ¥ã®å£ã¸ç§»å‹•ã™ã‚‹
             yield return MoveToAnotherWall();
 
-            // ƒvƒŒƒCƒ„[‚Æ‚Ì‹——£‚ğ’²‚×A‰“‚¢‚©‚Ç‚¤‚©‚ğ”»’è‚·‚é
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨ã®è·é›¢ã‚’èª¿ã¹ã€é ã„ã‹ã©ã†ã‹ã‚’åˆ¤å®šã™ã‚‹
             bool far = player != null && Vector2.Distance(player.position, transform.position) > farDistance;
 
-            // ƒvƒŒƒCƒ„[‚ª‰“‚¢ê‡
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒé ã„å ´åˆ
             if (far)
             {
-                // ‰“‹——£UŒ‚‚ğs‚¤
+                // é è·é›¢æ”»æ’ƒã‚’è¡Œã†
                 yield return ShootAttack();
 
-                // UŒ‚ŒãAw’è‚µ‚½ŠÔ‚¾‚¯UŒ‚ƒ^ƒCƒ~ƒ“ƒO‚É‚·‚é
+                // æ”»æ’ƒå¾Œã€æŒ‡å®šã—ãŸæ™‚é–“ã ã‘æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ã«ã™ã‚‹
                 yield return DownTime(downTimeAfterShoot);
             }
-            // ƒvƒŒƒCƒ„[‚ª‹ß‚¢ê‡A‚Ü‚½‚ÍƒvƒŒƒCƒ„[‚ªŒ©‚Â‚©‚ç‚È‚¢ê‡
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒè¿‘ã„å ´åˆã€ã¾ãŸã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒè¦‹ã¤ã‹ã‚‰ãªã„å ´åˆ
             else
             {
-                // —‰ºUŒ‚‚ğs‚¤
+                // è½ä¸‹æ”»æ’ƒã‚’è¡Œã†
                 yield return SlamAttack();
 
-                // UŒ‚ŒãAw’è‚µ‚½ŠÔ‚¾‚¯UŒ‚ƒ^ƒCƒ~ƒ“ƒO‚É‚·‚é
+                // æ”»æ’ƒå¾Œã€æŒ‡å®šã—ãŸæ™‚é–“ã ã‘æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ã«ã™ã‚‹
                 yield return DownTime(downTimeAfterSlam);
             }
         }
     }
 
-    // ¡‚¢‚é•Ç‚Æ‚Í•Ê‚Ì•Ç‚ğ‘I‚ÑA‚»‚±‚Ü‚ÅŠŠ‚ç‚©‚ÉˆÚ“®‚·‚é
-    // ˆÚ“®’†‚ÍÚG‚µ‚Ä‚àƒvƒŒƒCƒ„[‚Éƒ_ƒ[ƒW‚ğ—^‚¦‚È‚¢
+    // åˆæœŸã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã¾ãŸã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼è¨­ç½®ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ä¸Šã¸ãƒ¯ãƒ¼ãƒ—ã™ã‚‹
     IEnumerator MoveToAnotherWall()
     {
-        // Œ»İ‚¢‚é•Ç‚Æ‚Íˆá‚¤•Ç‚ğƒ‰ƒ“ƒ_ƒ€‚É‘I‚Ô
-        Wall next;
-        do
+        Vector2 destination;
+
+        // æ¡ä»¶ã‚’æº€ãŸã™è¶³å ´ã‚’ãƒ©ãƒ³ãƒ€ãƒ ã«é¸ã¶
+        if (!TryChooseRandomPlatformPosition(out destination))
         {
-            next = (Wall)Random.Range(0, 4);
-        }
-        while (next == currentWall);
-
-        // ˆÚ“®ŠJn‚Ìƒ{ƒX‚ÌˆÊ’u‚ğæ“¾
-        Vector2 from = transform.position;
-
-        // ˆÚ“®æ‚Ì•Ç‚Ìƒ‰ƒ“ƒ_ƒ€‚ÈˆÊ’u‚ğæ“¾
-        Vector2 to = SpotOn(next, Random.value);
-
-        // ˆÚ“®æ‚É‰ŠúáŠQ•¨‚ª‚ ‚éê‡AáŠQ•¨‚Éæ‚ê‚éˆÊ’u‚É•ÏX
-        if (TryGetInitialObjectLandingPosition(next, to, out Vector2 landing))
-        {
-            to = landing;
+            // è¶³å ´ãŒè¦‹ã¤ã‹ã‚‰ãªã„å ´åˆã¯ã€åºŠã®ç©ºã„ã¦ã„ã‚‹ä½ç½®ã‚’ä½¿ã†
+            destination = FindClearFloorPosition();
         }
 
-        // ˆÚ“®‚É‚©‚©‚Á‚½ŠÔ‚ğ‰Šú‰»
-        float t = 0f;
+        // ãƒ¯ãƒ¼ãƒ—å…ˆã«é’ã„ã²ã—å½¢ãƒãƒ¼ã‚«ãƒ¼ã‚’è¡¨ç¤º
+        ShowMarker(spawnMarker, destination, new Color(0.15f, 0.65f, 1f, 0.9f));
 
-        // w’è‚µ‚½ˆÚ“®ŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅˆÚ“®‚ğ‘±‚¯‚é
-        while (t < moveTime)
-        {
-            // Œo‰ßŠÔ‚ğ‰ÁZ
-            t += Time.deltaTime;
+        // ãƒ¯ãƒ¼ãƒ—å‰ã«ãƒœã‚¹ã‚’é’ãç‚¹æ»…ã•ã›ã‚‹
+        yield return BlinkBeforeTeleport(new Color(0.15f, 0.65f, 1f));
 
-            // ˆÚ“®‚Ìi‚İ‹ï‡‚ğ0`1‚Ì”ÍˆÍ‚ÅŒvZ
-            // SmoothStep‚É‚æ‚Á‚ÄAˆÚ“®ŠJn‚ÆI—¹‚ğŠŠ‚ç‚©‚É‚·‚é
-            float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / moveTime));
+        // 3ç§’çµŒéã—ãŸç¬é–“ã«ãƒãƒ¼ã‚«ãƒ¼ã‚’æ¶ˆã—ã€åŒã˜ä½ç½®ã¸ãƒœã‚¹ã‚’ç§»å‹•ã•ã›ã‚‹
+        if (spawnMarker != null) spawnMarker.SetActive(false);
+        SetPos(destination);
 
-            // ŠJnˆÊ’u‚©‚çˆÚ“®æ‚Ü‚ÅAŠŠ‚ç‚©‚ÉˆÚ“®‚³‚¹‚é
-            SetPos(Vector2.Lerp(from, to, k));
-
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
-            yield return null;
-        }
-
-        // ÅŒã‚ÉˆÚ“®æ‚Ö³Šm‚É”z’u‚·‚é
-        SetPos(to);
-
-        // Œ»İ‚¢‚é•Ç‚ğˆÚ“®æ‚Ì•Ç‚ÉXV
-        currentWall = next;
+        // é€šå¸¸ç§»å‹•å¾Œã¯åºŠå´ã«ã„ã‚‹ã‚‚ã®ã¨ã—ã¦æ‰±ã†
+        currentWall = Wall.Floor;
     }
 
-    // ‰ŠúáŠQ•¨‚Ìã‚Éƒ{ƒX‚ª’…’n‚Å‚«‚éˆÊ’u‚ğ’T‚·
-    // targetWall : ƒ{ƒX‚ªˆÚ“®‚·‚éæ‚Ì•Ç
-    // intendedPosition : ’Êí‚Ì’…’n—\’èˆÊ’u
-    // landingPosition : ÀÛ‚É’…’n‚·‚éˆÊ’u
-    // –ß‚è’l : ’…’n‚Å‚«‚éáŠQ•¨‚ªŒ©‚Â‚©‚Á‚½‚©‚Ç‚¤‚©
-    private bool TryGetInitialObjectLandingPosition(
-        Wall targetWall,
-        Vector2 intendedPosition,
-        out Vector2 landingPosition)
+    // InitialObjã‚¿ã‚°ã®ç‰©ã¨ã€LevelObjectãŒä»˜ã„ãŸãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼è¨­ç½®ç‰©ã‚’é›†ã‚ã‚‹
+    void GetPlatformColliders(System.Collections.Generic.List<Collider2D> result)
     {
-        // Å‰‚Í’Êí‚Ì’…’n—\’èˆÊ’u‚ğİ’è‚µ‚Ä‚¨‚­
-        landingPosition = intendedPosition;
+        result.Clear();
 
-        // InitialObjƒ^ƒO‚ª•t‚¢‚Ä‚¢‚éáŠQ•¨‚ğ‚·‚×‚Äæ“¾‚·‚é
-        GameObject[] objects = GameObject.FindGameObjectsWithTag("InitialObj");
+        var added = new System.Collections.Generic.HashSet<Collider2D>();
 
-        // ” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğæ“¾‚·‚é
+        // åˆæœŸé…ç½®ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+        GameObject[] initialObjects = GameObject.FindGameObjectsWithTag("InitialObj");
+        foreach (GameObject obj in initialObjects)
+        {
+            if (obj == null) continue;
+
+            Collider2D[] childColliders = obj.GetComponentsInChildren<Collider2D>();
+            foreach (Collider2D c in childColliders)
+            {
+                if (c != null && c.enabled && !c.isTrigger && added.Add(c))
+                    result.Add(c);
+            }
+        }
+
+        // LevelEditorã§é…ç½®ã•ã‚ŒãŸã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+        LevelObject[] placedObjects = FindObjectsByType<LevelObject>(FindObjectsSortMode.None);
+        foreach (LevelObject lo in placedObjects)
+        {
+            if (lo == null || (player != null && lo.gameObject == player.gameObject)) continue;
+
+            Collider2D[] childColliders = lo.GetComponentsInChildren<Collider2D>();
+            foreach (Collider2D c in childColliders)
+            {
+                if (c != null && c.enabled && !c.isTrigger && added.Add(c))
+                    result.Add(c);
+            }
+        }
+    }
+
+    // ãƒœã‚¹ãŒä¹—ã‚Œã‚‹å¹…ã‚’æŒã¡ã€ä¸Šå´ã«ç©ºé–“ãŒã‚ã‚‹è¶³å ´ã‹ã‚’ç¢ºèªã™ã‚‹
+    bool IsValidPlatformPosition(Collider2D platform, Vector2 position)
+    {
+        if (platform == null) return false;
+
+        Bounds b = platform.bounds;
+        float requiredWidth = halfSize.x * 2f + destinationPadding * 2f;
+
+        // ãƒœã‚¹ã®å¹…ã‚ˆã‚Šè¶³å ´ãŒç‹­ã„å ´åˆã¯ä½¿ç”¨ã—ãªã„
+        if (b.size.x < requiredWidth) return false;
+
+        // ç®±ã®å†…å´ã‹ã‚‰ã¯ã¿å‡ºã™ä½ç½®ã¯ä½¿ç”¨ã—ãªã„
+        Rect inner = Inner();
+        if (position.x - halfSize.x < inner.xMin ||
+            position.x + halfSize.x > inner.xMax ||
+            position.y - halfSize.y < inner.yMin ||
+            position.y + halfSize.y > inner.yMax)
+            return false;
+
+        // ãƒœã‚¹ã®å æœ‰ç¯„å›²ã«åˆ¥ã®ç‰©ä½“ãŒé‡ãªã‚‰ãªã„ã‹ç¢ºèªã™ã‚‹
+        Vector2 checkSize = new Vector2(
+            halfSize.x * 2f - 0.04f,
+            halfSize.y * 2f - 0.04f
+        );
+
+        Collider2D[] overlaps = Physics2D.OverlapBoxAll(position, checkSize, 0f);
+        foreach (Collider2D hit in overlaps)
+        {
+            if (hit == null || hit == col || hit == platform) continue;
+            if (hit.isTrigger) continue;
+
+            // è¶³å ´ä»¥å¤–ã®ç‰©ä½“ã¨é‡ãªã‚‹å ´æ‰€ã«ã¯å‡ºç¾ã—ãªã„
+            return false;
+        }
+
+        return true;
+    }
+
+    // è¶³å ´ã®ä¸Šã‹ã‚‰ãƒ©ãƒ³ãƒ€ãƒ ã«ãƒ¯ãƒ¼ãƒ—å…ˆã‚’é¸ã¶
+    bool TryChooseRandomPlatformPosition(out Vector2 destination)
+    {
+        destination = Vector2.zero;
+
+        var platforms = new System.Collections.Generic.List<Collider2D>();
+        GetPlatformColliders(platforms);
+
+        var candidates = new System.Collections.Generic.List<Vector2>();
+
+        foreach (Collider2D platform in platforms)
+        {
+            if (platform == null) continue;
+
+            Bounds b = platform.bounds;
+            float minX = b.min.x + halfSize.x + destinationPadding;
+            float maxX = b.max.x - halfSize.x - destinationPadding;
+
+            // ãƒœã‚¹ãŒååˆ†ã«ä¹—ã‚Œãªã„å¹…ãªã‚‰å€™è£œã‹ã‚‰å¤–ã™
+            if (maxX <= minX) continue;
+
+            // è¶³å ´ã®ä¸Šé¢ã«ãƒœã‚¹ã®åº•é¢ãŒæ¥ã™ã‚‹ä½ç½®
+            float x = Random.Range(minX, maxX);
+            Vector2 candidate = new Vector2(x, b.max.y + halfSize.y);
+
+            if (IsValidPlatformPosition(platform, candidate))
+                candidates.Add(candidate);
+        }
+
+        if (candidates.Count == 0) return false;
+
+        destination = candidates[Random.Range(0, candidates.Count)];
+        return true;
+    }
+
+    // è¶³å ´ãŒè¦‹ã¤ã‹ã‚‰ãªã„å ´åˆã«ä½¿ã†ã€åºŠä¸Šã®ç©ºã„ã¦ã„ã‚‹ä½ç½®
+    Vector2 FindClearFloorPosition()
+    {
         Rect inner = Inner();
 
-        // ’Tõ‹——£‚Ì‰Šú’l‚ğİ’è‚·‚é
-        float nearestDistance = initialObjectSearchDistance;
-
-        // ğŒ‚É‡‚¤áŠQ•¨‚ªŒ©‚Â‚©‚Á‚½‚©‚Ç‚¤‚©
-        bool found = false;
-
-        // æ“¾‚µ‚½áŠQ•¨‚ğ1‚Â‚¸‚Â’²‚×‚é
-        foreach (GameObject obj in objects)
+        for (int i = 0; i < 20; i++)
         {
-            // ƒIƒuƒWƒFƒNƒg‚ª‘¶İ‚µ‚È‚¢ê‡‚ÍŸ‚Öi‚Ş
-            if (obj == null)
-                continue;
-
-            // áŠQ•¨‚ÌCollider2D‚ğæ“¾‚·‚é
-            Collider2D col = obj.GetComponent<Collider2D>();
-
-            // Collider2D‚ª•t‚¢‚Ä‚¢‚È‚¢ê‡‚Í‘ÎÛŠO‚É‚·‚é
-            if (col == null)
-                continue;
-
-            // áŠQ•¨‚ÌˆÊ’u‚Æ‘å‚«‚³‚ğæ“¾‚·‚é
-            Bounds bounds = col.bounds;
-
-            // ’…’nŒó•â‚ÌˆÊ’u‚ğ’Êí‚Ì’…’n—\’èˆÊ’u‚É‚·‚é
-            Vector2 candidate = intendedPosition;
-
-            // ˆÚ“®æ‚Ì•Ç‚É‚æ‚Á‚ÄAáŠQ•¨‚Ì’…’nˆÊ’u‚ğŒvZ‚·‚é
-            switch (targetWall)
-            {
-                case Wall.Floor:
-                    // °‘¤‚É‚ ‚éáŠQ•¨‚¾‚¯‚ğ‘ÎÛ‚É‚·‚é
-                    if (bounds.center.y >= inner.center.y)
-                        continue;
-
-                    // ƒ{ƒX‚ªæ‚ê‚é‚¾‚¯‚Ì‰¡•‚ª‚È‚¢áŠQ•¨‚Í‘ÎÛŠO
-                    if (bounds.size.x < halfSize.x * 2f)
-                        continue;
-
-                    // ƒ{ƒX‚Ì’†S‚ªáŠQ•¨‚Ì‰¡•‚©‚ç‚Í‚İo‚³‚È‚¢‚æ‚¤‚É‚·‚é
-                    candidate.x = Mathf.Clamp(
-                        intendedPosition.x,
-                        bounds.min.x + halfSize.x,
-                        bounds.max.x - halfSize.x
-                    );
-
-                    // áŠQ•¨‚Ìã–Ê‚Éƒ{ƒX‚Ì’ê–Ê‚ªÚ‚·‚éˆÊ’u‚É‚·‚é
-                    candidate.y = bounds.max.y + halfSize.y;
-                    break;
-
-                case Wall.Ceiling:
-                    // “Vˆä‘¤‚É‚ ‚éáŠQ•¨‚¾‚¯‚ğ‘ÎÛ‚É‚·‚é
-                    if (bounds.center.y <= inner.center.y)
-                        continue;
-
-                    // ƒ{ƒX‚ªæ‚ê‚é‚¾‚¯‚Ì‰¡•‚ª‚È‚¢áŠQ•¨‚Í‘ÎÛŠO
-                    if (bounds.size.x < halfSize.x * 2f)
-                        continue;
-
-                    // ƒ{ƒX‚Ì’†S‚ªáŠQ•¨‚Ì‰¡•‚©‚ç‚Í‚İo‚³‚È‚¢‚æ‚¤‚É‚·‚é
-                    candidate.x = Mathf.Clamp(
-                        intendedPosition.x,
-                        bounds.min.x + halfSize.x,
-                        bounds.max.x - halfSize.x
-                    );
-
-                    // áŠQ•¨‚Ì‰º–Ê‚Éƒ{ƒX‚Ìã–Ê‚ªÚ‚·‚éˆÊ’u‚É‚·‚é
-                    candidate.y = bounds.min.y - halfSize.y;
-                    break;
-
-                case Wall.Left:
-                    // ¶‘¤‚É‚ ‚éáŠQ•¨‚¾‚¯‚ğ‘ÎÛ‚É‚·‚é
-                    if (bounds.center.x >= inner.center.x)
-                        continue;
-
-                    // ƒ{ƒX‚ªæ‚ê‚é‚¾‚¯‚Ì‚‚³‚ª‚È‚¢áŠQ•¨‚Í‘ÎÛŠO
-                    if (bounds.size.y < halfSize.y * 2f)
-                        continue;
-
-                    // áŠQ•¨‚Ì‰E‘¤‚Éƒ{ƒX‚ªÚ‚·‚éˆÊ’u‚É‚·‚é
-                    candidate.x = bounds.max.x + halfSize.x;
-
-                    // ƒ{ƒX‚Ì’†S‚ªáŠQ•¨‚Ì‚‚³‚©‚ç‚Í‚İo‚³‚È‚¢‚æ‚¤‚É‚·‚é
-                    candidate.y = Mathf.Clamp(
-                        intendedPosition.y,
-                        bounds.min.y + halfSize.y,
-                        bounds.max.y - halfSize.y
-                    );
-                    break;
-
-                case Wall.Right:
-                    // ‰E‘¤‚É‚ ‚éáŠQ•¨‚¾‚¯‚ğ‘ÎÛ‚É‚·‚é
-                    if (bounds.center.x <= inner.center.x)
-                        continue;
-
-                    // ƒ{ƒX‚ªæ‚ê‚é‚¾‚¯‚Ì‚‚³‚ª‚È‚¢áŠQ•¨‚Í‘ÎÛŠO
-                    if (bounds.size.y < halfSize.y * 2f)
-                        continue;
-
-                    // áŠQ•¨‚Ì¶‘¤‚Éƒ{ƒX‚ªÚ‚·‚éˆÊ’u‚É‚·‚é
-                    candidate.x = bounds.min.x - halfSize.x;
-
-                    // ƒ{ƒX‚Ì’†S‚ªáŠQ•¨‚Ì‚‚³‚©‚ç‚Í‚İo‚³‚È‚¢‚æ‚¤‚É‚·‚é
-                    candidate.y = Mathf.Clamp(
-                        intendedPosition.y,
-                        bounds.min.y + halfSize.y,
-                        bounds.max.y - halfSize.y
-                    );
-                    break;
-            }
-
-            // ’Êí‚Ì’…’n—\’èˆÊ’u‚©‚çŒó•âˆÊ’u‚Ü‚Å‚Ì‹——£‚ğŒvZ‚·‚é
-            float distance = Vector2.Distance(
-                intendedPosition,
-                candidate
+            float x = Random.Range(
+                inner.xMin + halfSize.x,
+                inner.xMax - halfSize.x
             );
 
-            // ’Tõ”ÍˆÍ“à‚ÅA‚±‚ê‚Ü‚Å‚æ‚è‹ß‚¢áŠQ•¨‚ªŒ©‚Â‚©‚Á‚½ê‡
-            if (distance <= nearestDistance)
+            Vector2 candidate = new Vector2(x, inner.yMin + halfSize.y);
+
+            Collider2D[] overlaps = Physics2D.OverlapBoxAll(
+                candidate,
+                halfSize * 2f * 0.9f,
+                0f
+            );
+
+            bool blocked = false;
+            foreach (Collider2D hit in overlaps)
             {
-                // Å‚à‹ß‚¢áŠQ•¨‚Ü‚Å‚Ì‹——£‚ğXV‚·‚é
-                nearestDistance = distance;
-
-                // ’…’nˆÊ’u‚ğ¡‰ñ‚ÌŒó•âˆÊ’u‚ÉXV‚·‚é
-                landingPosition = candidate;
-
-                // ğŒ‚É‡‚¤áŠQ•¨‚ªŒ©‚Â‚©‚Á‚½‚±‚Æ‚ğ‹L˜^‚·‚é
-                found = true;
+                if (hit == null || hit == col || hit.isTrigger) continue;
+                blocked = true;
+                break;
             }
+
+            if (!blocked) return candidate;
         }
 
-        // ğŒ‚É‡‚¤áŠQ•¨‚ªŒ©‚Â‚©‚Á‚½‚©‚Ç‚¤‚©‚ğ•Ô‚·
-        return found;
+        return SpotOn(Wall.Floor, Random.value);
     }
 
-    // —‰ºUŒ‚:
-    // Œü‚©‚¢‘¤‚Ì•Ç‚ÉŒü‚©‚Á‚ÄA‘O’›(Ô‚­“_–ÅE’…’n“_‚ÌˆóEü)‚ğ•\¦‚·‚éB
-    // ‘O’›‚ªI‚í‚é‚Æƒ{ƒX‚ª—‰º‚µA’…’n‚µ‚½êŠ‚©‚çÕŒ‚”g‚ğ”­¶‚³‚¹‚éB
+    // æŒ‡å®šä½ç½®ã«ãƒãƒ¼ã‚«ãƒ¼ã‚’è¡¨ç¤ºã™ã‚‹
+    void ShowMarker(GameObject targetMarker, Vector2 position, Color color)
+    {
+        if (targetMarker == null) return;
+
+        targetMarker.transform.position = position;
+        targetMarker.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
+        targetMarker.SetActive(true);
+
+        SpriteRenderer markerRenderer = targetMarker.GetComponent<SpriteRenderer>();
+        if (markerRenderer != null) markerRenderer.color = color;
+    }
+
+    // ãƒ¯ãƒ¼ãƒ—å‰ã«ãƒœã‚¹ã¨ç§»å‹•å…ˆãƒãƒ¼ã‚«ãƒ¼ã‚’ç‚¹æ»…ã•ã›ã‚‹
+    // æœ€åˆã¯ã‚†ã£ãã‚Šã€ãƒ¯ãƒ¼ãƒ—æ™‚åˆ»ãŒè¿‘ã¥ãã»ã©ç‚¹æ»…ã‚’é€Ÿãã™ã‚‹
+    IEnumerator BlinkBeforeTeleport(Color blinkColor)
+    {
+        // ãƒãƒ¼ã‚«ãƒ¼ã‚’è¡¨ç¤ºã—ã¦ã‹ã‚‰ã€å¿…ãšmoveTimeç§’ãŒçµŒéã™ã‚‹ã¾ã§å¾…ã¤ã€‚
+        // ç‚¹æ»…é–“éš”ã®åˆè¨ˆã§å¾…ã¡æ™‚é–“ã‚’è¨ˆç®—ã—ãªã„ãŸã‚ã€ç‚¹æ»…é€Ÿåº¦ã‚’å¤‰ãˆã¦ã‚‚3ç§’ã‚’ç¶­æŒã™ã‚‹ã€‚
+        float startTime = Time.time;
+        float elapsed = 0f;
+        float nextBlinkTime = 0f;
+        bool showColor = true;
+
+        SpriteRenderer markerRenderer = spawnMarker != null
+            ? spawnMarker.GetComponent<SpriteRenderer>()
+            : null;
+
+        // ã‚«ã‚¦ãƒ³ãƒˆé–‹å§‹æ™‚ã¯ãƒãƒ¼ã‚«ãƒ¼ã‚’è¡¨ç¤ºã™ã‚‹
+        if (markerRenderer != null)
+            markerRenderer.enabled = true;
+
+        while (elapsed < moveTime)
+        {
+            elapsed = Time.time - startTime;
+
+            // æ®‹ã‚Šæ™‚é–“ã«å¿œã˜ã¦ç‚¹æ»…é–“éš”ã‚’çŸ­ãã™ã‚‹
+            float progress = Mathf.Clamp01(elapsed / Mathf.Max(moveTime, 0.01f));
+            float interval = Mathf.Lerp(
+                teleportBlinkInterval,
+                teleportBlinkFastInterval,
+                progress
+            );
+
+            // æ¬¡ã®ç‚¹æ»…æ™‚åˆ»ã«ãªã£ãŸã¨ãã ã‘è¡¨ç¤ºçŠ¶æ…‹ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹
+            if (elapsed >= nextBlinkTime)
+            {
+                showColor = !showColor;
+                brainColor = showColor ? blinkColor : baseColor;
+
+                if (markerRenderer != null)
+                    markerRenderer.enabled = showColor;
+
+                nextBlinkTime = elapsed + Mathf.Max(interval, 0.01f);
+            }
+
+            // æ¯ãƒ•ãƒ¬ãƒ¼ãƒ æ™‚é–“ã‚’ç¢ºèªã™ã‚‹ã€‚ã“ã‚Œã«ã‚ˆã‚Šåˆè¨ˆå¾…ã¡æ™‚é–“ã¯moveTimeç§’ã«ãªã‚‹
+            yield return null;
+        }
+
+        // 3ç§’çµŒéã€‚ãƒ¯ãƒ¼ãƒ—ç›´å‰ã«ãƒœã‚¹ã®è‰²ã‚’é€šå¸¸è‰²ã¸æˆ»ã™
+        brainColor = baseColor;
+        if (markerRenderer != null)
+            markerRenderer.enabled = true;
+    }
+
+    // è½ä¸‹æ”»æ’ƒ:
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ç¾åœ¨ä½ç½®ã®çœŸä¸Šã¸ãƒ¯ãƒ¼ãƒ—ã—ã€çœŸä¸‹ã¸è½ä¸‹ã™ã‚‹ã€‚
+    // äºˆå‘Šä¸­ã¯èµ¤ã„ãƒãƒ¼ã‚«ãƒ¼ã‚’è¡¨ç¤ºã—ã€3ç§’å¾Œã«ãƒãƒ¼ã‚«ãƒ¼ã‚’æ¶ˆã—ã¦è½ä¸‹ã‚’é–‹å§‹ã™ã‚‹ã€‚
     IEnumerator SlamAttack()
     {
-        // ƒvƒŒƒCƒ„[‚ª‘¶İ‚µ‚È‚¢ê‡‚ÍA—‰ºUŒ‚‚ğs‚í‚¸I—¹‚·‚é
         if (player == null) yield break;
 
-        // Œ»İ‚¢‚é•Ç‚Ì”½‘Î‘¤‚ğA—‰ºæ‚Ì•Ç‚É‚·‚é
-        Wall target = Opposite(currentWall);
+        label = "è½ä¸‹!";
+        Rect inner = Inner();
+        Vector2 landing = FindLandingPosition(player.position.x);
+        Vector2 spawnPosition = GetFallSpawnPosition(landing, inner);
 
-        // ƒvƒŒƒCƒ„[‚ÌˆÊ’u‚ğA—‰ºæ‚Ì•Ç‚É‰ˆ‚Á‚½ˆÊ’u(0`1)‚É•ÏŠ·‚·‚é
-        // ‚±‚Ì’l‚ğg‚Á‚ÄAƒvƒŒƒCƒ„[‚Ì‚¢‚éˆÊ’u‚ğ‘_‚¤
-        float lockedU = ProjectU(target, player.position);
+        // è½ä¸‹æ”»æ’ƒã§ã¯ç€åœ°ç‚¹ãƒãƒ¼ã‚«ãƒ¼ã‚’ä½¿ã‚ãšã€ãƒœã‚¹ã®å‡ºç¾ä½ç½®ã ã‘ã‚’è¡¨ç¤ºã™ã‚‹ã€‚
+        if (marker != null) marker.SetActive(false);
+        ShowMarker(spawnMarker, spawnPosition, new Color(1f, 0.12f, 0.12f, 0.95f));
 
-        // ƒ{ƒX‚Ìó‘Ô•\¦‚ğu—‰º!v‚É‚·‚é
-        label = "—‰º!";
+        SpriteRenderer spawnRenderer = spawnMarker != null
+            ? spawnMarker.GetComponent<SpriteRenderer>()
+            : null;
 
-        // ’…’n“_‚ğ¦‚·ü‚Æƒ}[ƒJ[‚ğ•\¦‚·‚é
-        slamLine.enabled = true;
-        marker.SetActive(true);
+        float warningStart = Time.time;
+        float nextBlinkTime = 0f;
+        bool markerVisible = true;
 
-        //  —‰º‘O‚Ì—\’› 
-        float t = 0f;
-
-        // İ’è‚³‚ê‚½—\’›ŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅŒJ‚è•Ô‚·
-        while (t < slamTelegraph)
+        // äºˆå‘Šä¸­ã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ¨ªä½ç½®ã«è¿½å¾“ã™ã‚‹ã€‚å‡ºç¾é«˜åº¦ã¯æœ€ã‚‚é«˜ã„åˆæœŸéšœå®³ç‰©ã®ä¸Šã€‚
+        while (Time.time - warningStart < moveTime)
         {
-            // Œo‰ßŠÔ‚ğ‰ÁZ‚·‚é
-            t += Time.deltaTime;
-
-            // ’…’n“_‚ªŒÅ’è‚³‚ê‚éŠÔ‚É“ü‚Á‚½‚©‚ğ”»’è‚·‚é
-            bool locked = slamTelegraph - t <= slamLockTime;
-
-            // ’…’n“_‚ªŒÅ’è‚³‚ê‚é‚Ü‚Å‚ÍAƒvƒŒƒCƒ„[‚ÌŒ»İˆÊ’u‚ğ’Ç‚¢‘±‚¯‚é
-            if (!locked)
-                lockedU = ProjectU(target, player.position);
-
-            // ‘_‚Á‚Ä‚¢‚éˆÊ’u‚ğAÀÛ‚Ìƒ[ƒ‹ƒhÀ•W‚É•ÏŠ·‚·‚é
-            Vector2 to = SpotOn(target, lockedU);
-
-            // ’…’n“_•t‹ß‚É‰ŠúáŠQ•¨‚ª‚ ‚ê‚ÎA‚»‚Ìã‚É’…’n‚·‚éˆÊ’u‚É•ÏX‚·‚é
-            if (TryGetInitialObjectLandingPosition(target, to, out Vector2 previewLanding))
+            if (player != null)
             {
-                to = previewLanding;
+                landing = FindLandingPosition(player.position.x);
+                spawnPosition = GetFallSpawnPosition(landing, inner);
+                if (spawnMarker != null) spawnMarker.transform.position = spawnPosition;
             }
 
-            // ƒ{ƒX‚ÌŒ»İˆÊ’u‚©‚ç’…’n“_‚Ü‚Å‚Ì—\’›ü‚ğ•\¦‚·‚é
-            slamLine.SetPosition(0, transform.position);
-            slamLine.SetPosition(1, to);
+            float elapsed = Time.time - warningStart;
+            float progress = Mathf.Clamp01(elapsed / Mathf.Max(moveTime, 0.01f));
+            float blinkInterval = Mathf.Lerp(teleportBlinkInterval, teleportBlinkFastInterval, progress);
 
-            // ’…’n“_‚ğ¦‚·ƒ}[ƒJ[‚ğˆÚ“®‚³‚¹‚é
-            marker.transform.position = to;
+            if (elapsed >= nextBlinkTime)
+            {
+                markerVisible = !markerVisible;
+                brainColor = markerVisible ? Color.red : baseColor;
+                if (spawnRenderer != null) spawnRenderer.enabled = markerVisible;
+                nextBlinkTime = elapsed + Mathf.Max(blinkInterval, 0.01f);
+            }
 
-            // ’…’n“_‚ªŒÅ’è‚³‚ê‚é‘O‚Í”–‚­AŒÅ’è‚³‚ê‚½Œã‚Í”Z‚­•\¦‚·‚é
-            SetTelegraphAlpha(locked ? 1f : 0.35f);
-
-            // ƒ{ƒX‚ğÔ‚­“_–Å‚³‚¹‚ÄA—‰ºUŒ‚‚ª—ˆ‚é‚±‚Æ‚ğ’m‚ç‚¹‚é
-            brainColor = ((int)(Time.time * 14f) % 2 == 0)
-                ? Color.red
-                : baseColor;
-
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
             yield return null;
         }
 
-        // —\’›‚Ìü‚Æƒ}[ƒJ[‚ğ”ñ•\¦‚É‚·‚é
-        HideTelegraph();
-
-        // ƒ{ƒX‚ÌF‚ğŒ³‚É–ß‚·
+        if (spawnMarker != null) spawnMarker.SetActive(false);
         brainColor = baseColor;
-
-        // ó‘Ô•\¦‚ğÁ‚·
         label = null;
 
-        // ---------- —‰ºˆ— ----------
-        // —‰ºŠJn‚Ìƒ{ƒX‚ÌˆÊ’u‚ğæ“¾‚·‚é
-        Vector2 from = transform.position;
-
-        // ŒÅ’è‚³‚ê‚½’…’n“_‚ÌÀ•W‚ğæ“¾‚·‚é
-        Vector2 dest = SpotOn(target, lockedU);
-
-        // ’…’n“_‚É‰ŠúáŠQ•¨‚ª‚ ‚ê‚ÎAáŠQ•¨‚ÉÚ‚·‚éˆÊ’u‚É•ÏX‚·‚é
-        if (TryGetInitialObjectLandingPosition(target, dest, out Vector2 landing))
-        {
-            dest = landing;
-        }
-
-        // —‰º’†‚¾‚¯Aƒ{ƒX‚Æ‚ÌÚG‚É‚æ‚éƒ_ƒ[ƒW‚ğ—LŒø‚É‚·‚é
+        // ãƒãƒ¼ã‚«ãƒ¼ãŒç¤ºã—ã¦ã„ãŸä½ç½®ã«å‡ºç¾ã—ã€ä¸‹æ–¹å‘ã¸è½ä¸‹ã™ã‚‹ã€‚
+        SetPos(spawnPosition);
+        isFalling = true;
+        hasLanded = false;
         contactEnabled = true;
 
-        // —‰ºŠÔ‚ÌŒv‘ª‚ğŠJn‚·‚é
-        t = 0f;
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.gravityScale = 1f;
+        rb.linearVelocity = new Vector2(0f, -15f);
+        rb.angularVelocity = 0f;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.WakeUp();
+        Physics2D.SyncTransforms();
 
-        // İ’è‚³‚ê‚½—‰ºŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅˆÚ“®‚·‚é
-        while (t < diveTime)
+        float fallElapsed = 0f;
+        const float maxFallTime = 5f;
+        while (!hasLanded && fallElapsed < maxFallTime)
         {
-            // Œo‰ßŠÔ‚ğ‰ÁZ‚·‚é
-            t += Time.deltaTime;
-
-            // —‰º‚Ìis“x‚ğ0`1‚Ì”ÍˆÍ‚Éû‚ß‚é
-            float k = Mathf.Clamp01(t / diveTime);
-
-            // k‚Ì2æ‚ğg‚¢AÅ‰‚Í‚ä‚Á‚­‚èAŒã”¼‚Í‘¬‚­‚È‚é‚æ‚¤‚ÉˆÚ“®‚³‚¹‚é
-            SetPos(Vector2.Lerp(from, dest, k * k));
-
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
-            yield return null;
+            yield return new WaitForFixedUpdate();
+            fallElapsed += Time.fixedDeltaTime;
+            if (transform.position.y < inner.yMin - halfSize.y) break;
         }
 
-        // ÅI“I‚ÈˆÊ’u‚ğ’…’n“_‚É‡‚í‚¹‚é
-        SetPos(dest);
-
-        // ƒ{ƒX‚ªŒ»İ‚¢‚é•Ç‚ğA—‰ºæ‚Ì•Ç‚ÉXV‚·‚é
-        currentWall = target;
-
-        // —‰º‚ªI—¹‚µ‚½‚Ì‚ÅAÚGƒ_ƒ[ƒW‚ğ–³Œø‚É‚·‚é
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        rb.gravityScale = 0f;
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        isFalling = false;
         contactEnabled = false;
 
-        // ’…’n‚µ‚½ˆÊ’u‚©‚çA•Ç‚É‰ˆ‚Á‚Ä¶‰E—¼•ûŒü‚ÖÕŒ‚”g‚ğ”­¶‚³‚¹‚é
-        SpawnShockwaves(target, dest);
+        if (!hasLanded)
+            SetPos(landing);
+
+        Physics2D.SyncTransforms();
+        Vector2 impact = transform.position;
+        currentWall = Wall.Floor;
+
+        // å®Ÿéš›ã«ç€åœ°ã—ãŸä½ç½®ã‹ã‚‰ã€åˆæœŸéšœå®³ç‰©ã®å†…å´è¼ªéƒ­ã«æ²¿ã£ã¦è¡æ’ƒæ³¢ã‚’æµã™ã€‚
+        SpawnShockwaves(impact);
     }
 
-    // ÕŒ‚”g:
-    // ƒ{ƒX‚ª’…’n‚µ‚½êŠ‚©‚çA” ‚Ì•Ç‚É‰ˆ‚Á‚Ä¶‰E—¼•ûŒü‚ÖÕŒ‚”g‚ğ‘–‚ç‚¹‚éB
-    void SpawnShockwaves(Wall wall, Vector2 impact)
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®Xåº§æ¨™ã‹ã‚‰ã€çœŸä¸‹ã«ã‚ã‚‹è¶³å ´ã®ä¸Šé¢ã‚’ç€åœ°ç‚¹ã¨ã—ã¦å–å¾—ã™ã‚‹ã€‚
+    // è¶³å ´ãŒãªã‘ã‚Œã°ç®±ã®åºŠã‚’ç€åœ°ç‚¹ã«ã™ã‚‹ã€‚
+    Vector2 FindLandingPosition(float targetX)
     {
-        // ” ‚Ì“à‘¤‚Ì”ÍˆÍ‚ğæ“¾‚·‚é
         Rect inner = Inner();
 
-        // ÕŒ‚”g‚ª‘–‚éŒo˜H‚ğì‚é
-        // waveInset‚Ì•ª‚¾‚¯” ‚Ì•Ç‚©‚ç“à‘¤‚É‚¸‚ç‚µ‚Ä‚¢‚é
-        var loop = new Rect(inner.xMin + waveInset, inner.yMin + waveInset,
-            inner.width - waveInset * 2f, inner.height - waveInset * 2f);
+        float x = Mathf.Clamp(
+            targetX,
+            inner.xMin + halfSize.x,
+            inner.xMax - halfSize.x
+        );
 
-        // ƒ{ƒX‚Ì’…’nˆÊ’u‚ğAÕŒ‚”g‚ÌŒo˜Hã‚ÌˆÊ’u(‹——£ƒpƒ‰ƒ[ƒ^)‚É•ÏŠ·‚·‚é
-        // wall‚Í’…’n‚µ‚½•Ç‚Ì”Ô†Aimpact‚ÍÀÛ‚Ì’…’nÀ•W
-        float s0 = BossShockwave.ParamOnLoop(loop, (int)wall, impact);
+        Vector2 rayStart = new Vector2(x, inner.yMax - 0.05f);
+        RaycastHit2D[] hits = Physics2D.RaycastAll(
+            rayStart,
+            Vector2.down,
+            inner.height
+        );
 
-        // Œo˜H‘S‘Ì‚Ì’·‚³‚Ì”¼•ª‚ğŒvZ‚·‚é
-        // ¶‰E‚©‚çi‚ŞÕŒ‚”g‚ªAŒo˜H‚Ì”½‘Î‘¤‚Åo‰ï‚¤‚Ü‚Å‚Ì‹——£‚É‚È‚é
-        float half = BossShockwave.Perimeter(loop) * 0.5f;
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
-        // ÕŒ‚”g‚ÌF‚ğİ’è‚·‚é(Ô‚İ‚Ì‚ ‚éƒIƒŒƒ“ƒWF)
-        var color = new Color(1f, 0.35f, 0.2f, 0.9f);
+        foreach (RaycastHit2D hit in hits)
+        {
+            if (hit.collider == null ||
+                hit.collider == col ||
+                hit.collider == playerCol ||
+                hit.collider.isTrigger)
+                continue;
 
-        // ’…’n“_‚©‚ç³•ûŒü(+1)‚Öi‚ŞÕŒ‚”g‚ğ”­¶‚³‚¹‚é
-        BossShockwave.Spawn(loop, s0, +1, waveSpeed, half, waveRadius, waveDamage, playerCol, playerHealth, color);
+            // ãƒœã‚¹ãŒä¹—ã‚Œãªã„ã»ã©ç‹­ã„è¶³å ´ã¯ç€åœ°ç‚¹ã«ã—ãªã„ã€‚
+            Bounds bounds = hit.collider.bounds;
+            float requiredWidth = halfSize.x * 2f + destinationPadding * 2f;
 
-        // ’…’n“_‚©‚ç‹t•ûŒü(-1)‚Öi‚ŞÕŒ‚”g‚ğ”­¶‚³‚¹‚é
-        BossShockwave.Spawn(loop, s0, -1, waveSpeed, half, waveRadius, waveDamage, playerCol, playerHealth, color);
+            if (bounds.size.x < requiredWidth)
+                continue;
+
+            return new Vector2(x, hit.point.y + halfSize.y);
+        }
+
+        return new Vector2(x, inner.yMin + halfSize.y);
     }
 
-    // ‰“‹——£UŒ‚:
-    // ‘O’›‚Æ‚µ‚Äƒ{ƒX‚ğƒIƒŒƒ“ƒWF‚É“_–Å‚³‚¹‚½‚ ‚ÆAƒvƒŒƒCƒ„[‚Ì•ûŒü‚Ö’e‚ğ˜AË‚·‚éB
+    // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®çœŸä¸Šã«ã€æœ€ã‚‚é«˜ã„åˆæœŸéšœå®³ç‰©ã‚ˆã‚Šå°‘ã—ä¸Šã®å‡ºç¾ä½ç½®ã‚’è¨­å®šã™ã‚‹ã€‚
+    // ãƒœã‚¹ã®é ­ãŒéšœå®³ç‰©ã‚„å¤©äº•ã«ã‚ã‚Šè¾¼ã¾ãªã„ã‚ˆã†ã€ãƒœã‚¹è‡ªèº«ã®åŠåˆ†ã®é«˜ã•ã‚‚åŠ å‘³ã™ã‚‹ã€‚
+    Vector2 GetFallSpawnPosition(Vector2 landing, Rect inner)
+    {
+        float x = Mathf.Clamp(landing.x, inner.xMin + halfSize.x, inner.xMax - halfSize.x);
+        float highestObstacleTop = inner.yMin;
+
+        ArenaObstacleGenerator generator = FindObjectOfType<ArenaObstacleGenerator>();
+        if (generator != null)
+        {
+            Collider2D[] obstacles = generator.GetGeneratedColliders();
+            foreach (Collider2D obstacle in obstacles)
+            {
+                if (obstacle == null || obstacle.isTrigger) continue;
+                // å¤©äº•å´ã®éšœå®³ç‰©ã¯è½ä¸‹é–‹å§‹ä½ç½®ã®åŸºæº–ã«ã—ãªã„ã€‚
+                // ç®±ã®ä¸­å¤®ã‚ˆã‚Šä¸‹ã«ã‚ã‚‹åˆæœŸç‰©ã®ã†ã¡ã€æœ€ã‚‚é«˜ã„ä¸Šé¢ã‚’ä½¿ã†ã€‚
+                if (obstacle.bounds.center.y <= inner.center.y)
+                    highestObstacleTop = Mathf.Max(highestObstacleTop, obstacle.bounds.max.y);
+            }
+        }
+
+        const float headClearance = 0.2f;
+        float y = highestObstacleTop + halfSize.y + headClearance;
+        float maxY = inner.yMax - halfSize.y - 0.05f;
+        y = Mathf.Clamp(y, inner.yMin + halfSize.y, maxY);
+        return new Vector2(x, y);
+    }
+
+    // è½ä¸‹ä¸­ã«åºŠãƒ»è¶³å ´ã¸ç€åœ°ã—ãŸã‹ã‚’ç‰©ç†è¡çªã‹ã‚‰åˆ¤å®šã™ã‚‹ã€‚
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        CheckFallLanding(collision);
+    }
+
+    void OnCollisionStay2D(Collision2D collision)
+    {
+        CheckFallLanding(collision);
+    }
+
+    void CheckFallLanding(Collision2D collision)
+    {
+        if (!isFalling || collision == null)
+            return;
+
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨ã®æ¥è§¦ã¯ç€åœ°ã¨ã—ã¦æ‰±ã‚ãªã„ã€‚
+        if (playerCol != null && collision.collider == playerCol)
+            return;
+
+        // ä¸Šå‘ãã®æ¥è§¦æ³•ç·šãŒã‚ã‚‹å ´åˆã€ãƒœã‚¹ã®åº•é¢ãŒè¶³å ´ã«ä¹—ã£ãŸã¨åˆ¤æ–­ã™ã‚‹ã€‚
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            if (collision.GetContact(i).normal.y > 0.5f)
+            {
+                hasLanded = true;
+                return;
+            }
+        }
+    }
+
+    // è¡æ’ƒæ³¢ï¼šåˆæœŸéšœå®³ç‰©ã®å†…å´ã«ã§ããŸå‡¹å‡¸ã®è¼ªéƒ­ã‚’å–å¾—ã—ã€ç€åœ°ç‚¹ã‹ã‚‰ä¸¡æ–¹å‘ã¸èµ°ã‚‰ã›ã‚‹ã€‚
+    void SpawnShockwaves(Vector2 impact)
+    {
+        List<Vector2> path = BuildInitialObstacleContour();
+        if (path == null || path.Count < 4)
+        {
+            Debug.LogWarning("è¡æ’ƒæ³¢ã®è¼ªéƒ­ã‚’ä½œã‚Œãªã‹ã£ãŸãŸã‚ã€è¡æ’ƒæ³¢ã‚’ç”Ÿæˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚");
+            return;
+        }
+
+        float startDistance = BossShockwave.FindNearestDistance(path, impact);
+        float halfLength = BossShockwave.PathLength(path) * 0.5f;
+        Color color = new Color(1f, 0.35f, 0.2f, 0.9f);
+
+        BossShockwave.Spawn(path, startDistance, +1, waveSpeed, halfLength, waveRadius,
+            waveDamage, playerCol, playerHealth, color);
+        BossShockwave.Spawn(path, startDistance, -1, waveSpeed, halfLength, waveRadius,
+            waveDamage, playerCol, playerHealth, color);
+    }
+
+
+    // åˆæœŸéšœå®³ç‰©ã®å†…å´è¼ªéƒ­ã‚’ä½œã‚‹ã€‚
+    // éšœå®³ç‰©ã®è§’ã¨æ ã®å†…å´ã‚’ã¤ãªã„ã§ã€é€£ç¶šã—ãŸå‡¹å‡¸çµŒè·¯ã«ã™ã‚‹ã€‚
+    List<Vector2> BuildInitialObstacleContour()
+    {
+        Rect inner = Inner();
+
+        ArenaObstacleGenerator generator =
+            FindObjectOfType<ArenaObstacleGenerator>();
+
+        Collider2D[] obstacles = generator != null
+            ? generator.GetGeneratedColliders()
+            : new Collider2D[0];
+
+        // 0=åºŠã€1=å³ã€2=å¤©äº•ã€3=å·¦
+        List<Collider2D>[] sides = new List<Collider2D>[4];
+
+        for (int i = 0; i < 4; i++)
+            sides[i] = new List<Collider2D>();
+
+        // éšœå®³ç‰©ã‚’ã€ãã‚Œãã‚Œæœ€ã‚‚è¿‘ã„å£ã«åˆ†é¡ã™ã‚‹
+        foreach (Collider2D obstacle in obstacles)
+        {
+            if (obstacle == null || !obstacle.enabled || obstacle.isTrigger)
+                continue;
+
+            Bounds b = obstacle.bounds;
+
+            float[] distances =
+            {
+            Mathf.Abs(b.min.y - inner.yMin),
+            Mathf.Abs(inner.xMax - b.max.x),
+            Mathf.Abs(inner.yMax - b.max.y),
+            Mathf.Abs(b.min.x - inner.xMin)
+        };
+
+            int nearestSide = 0;
+
+            for (int i = 1; i < 4; i++)
+            {
+                if (distances[i] < distances[nearestSide])
+                    nearestSide = i;
+            }
+
+            sides[nearestSide].Add(obstacle);
+        }
+
+        List<Vector2> points = new List<Vector2>();
+
+        float inset = waveInset;
+
+        float left = inner.xMin + inset;
+        float right = inner.xMax - inset;
+        float bottom = inner.yMin + inset;
+        float top = inner.yMax - inset;
+
+        // åºŠï¼šå·¦ã‹ã‚‰å³
+        AddContourPoint(points, new Vector2(left, bottom));
+
+        sides[0].Sort((a, b) =>
+            a.bounds.min.x.CompareTo(b.bounds.min.x));
+
+        foreach (Collider2D obstacle in sides[0])
+        {
+            Bounds b = obstacle.bounds;
+
+            float x1 = Mathf.Clamp(b.min.x, left, right);
+            float x2 = Mathf.Clamp(b.max.x, left, right);
+            float y = Mathf.Min(b.max.y + inset, top);
+
+            AddContourPoint(points, new Vector2(x1, bottom));
+            AddContourPoint(points, new Vector2(x1, y));
+            AddContourPoint(points, new Vector2(x2, y));
+            AddContourPoint(points, new Vector2(x2, bottom));
+        }
+
+        AddContourPoint(points, new Vector2(right, bottom));
+
+        // å³å£ï¼šä¸‹ã‹ã‚‰ä¸Š
+        sides[1].Sort((a, b) =>
+            a.bounds.min.y.CompareTo(b.bounds.min.y));
+
+        foreach (Collider2D obstacle in sides[1])
+        {
+            Bounds b = obstacle.bounds;
+
+            float y1 = Mathf.Clamp(b.min.y, bottom, top);
+            float y2 = Mathf.Clamp(b.max.y, bottom, top);
+            float x = Mathf.Max(b.min.x - inset, left);
+
+            AddContourPoint(points, new Vector2(right, y1));
+            AddContourPoint(points, new Vector2(x, y1));
+            AddContourPoint(points, new Vector2(x, y2));
+            AddContourPoint(points, new Vector2(right, y2));
+        }
+
+        AddContourPoint(points, new Vector2(right, top));
+
+        // å¤©äº•ï¼šå³ã‹ã‚‰å·¦
+        sides[2].Sort((a, b) =>
+            b.bounds.max.x.CompareTo(a.bounds.max.x));
+
+        foreach (Collider2D obstacle in sides[2])
+        {
+            Bounds b = obstacle.bounds;
+
+            float x1 = Mathf.Clamp(b.max.x, left, right);
+            float x2 = Mathf.Clamp(b.min.x, left, right);
+            float y = Mathf.Max(b.min.y - inset, bottom);
+
+            AddContourPoint(points, new Vector2(x1, top));
+            AddContourPoint(points, new Vector2(x1, y));
+            AddContourPoint(points, new Vector2(x2, y));
+            AddContourPoint(points, new Vector2(x2, top));
+        }
+
+        AddContourPoint(points, new Vector2(left, top));
+
+        // å·¦å£ï¼šä¸Šã‹ã‚‰ä¸‹
+        sides[3].Sort((a, b) =>
+            b.bounds.max.y.CompareTo(a.bounds.max.y));
+
+        foreach (Collider2D obstacle in sides[3])
+        {
+            Bounds b = obstacle.bounds;
+
+            float y1 = Mathf.Clamp(b.max.y, bottom, top);
+            float y2 = Mathf.Clamp(b.min.y, bottom, top);
+            float x = Mathf.Min(b.max.x + inset, right);
+
+            AddContourPoint(points, new Vector2(left, y1));
+            AddContourPoint(points, new Vector2(x, y1));
+            AddContourPoint(points, new Vector2(x, y2));
+            AddContourPoint(points, new Vector2(left, y2));
+        }
+
+        return points;
+    }
+
+    // åŒã˜ä½ç½®ã®ç‚¹ã‚’é‡è¤‡ç™»éŒ²ã—ãªã„
+    void AddContourPoint(List<Vector2> points, Vector2 point)
+    {
+        if (points.Count == 0 ||
+            Vector2.Distance(points[points.Count - 1], point) > 0.02f)
+        {
+            points.Add(point);
+        }
+    }
+
+
+    // é è·é›¢æ”»æ’ƒ:
+    // å‰å…†ã¨ã—ã¦ãƒœã‚¹ã‚’ã‚ªãƒ¬ãƒ³ã‚¸è‰²ã«ç‚¹æ»…ã•ã›ãŸã‚ã¨ã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ–¹å‘ã¸å¼¾ã‚’é€£å°„ã™ã‚‹ã€‚
     IEnumerator ShootAttack()
     {
-        // ƒvƒŒƒCƒ„[‚ª‘¶İ‚µ‚È‚¢ê‡‚ÍAUŒ‚‚ğs‚í‚¸I—¹‚·‚é
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒå­˜åœ¨ã—ãªã„å ´åˆã¯ã€æ”»æ’ƒã‚’è¡Œã‚ãšçµ‚äº†ã™ã‚‹
         if (player == null) yield break;
 
-        // ƒ{ƒX‚Ìó‘Ô•\¦‚ğu‰“‹——£!v‚É‚·‚é
-        label = "‰“‹——£!";
+        // ãƒœã‚¹ã®çŠ¶æ…‹è¡¨ç¤ºã‚’ã€Œé è·é›¢!ã€ã«ã™ã‚‹
+        label = "é è·é›¢!";
 
-        //  UŒ‚‘O‚Ì—\’› 
+        //  æ”»æ’ƒå‰ã®äºˆå…† 
         float t = 0f;
 
-        // İ’è‚³‚ê‚½—\’›ŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅŒJ‚è•Ô‚·
+        // è¨­å®šã•ã‚ŒãŸäºˆå…†æ™‚é–“ãŒçµŒéã™ã‚‹ã¾ã§ç¹°ã‚Šè¿”ã™
         while (t < shootTelegraph)
         {
-            // Œo‰ßŠÔ‚ğ‰ÁZ‚·‚é
+            // çµŒéæ™‚é–“ã‚’åŠ ç®—ã™ã‚‹
             t += Time.deltaTime;
 
-            // ƒ{ƒX‚ğƒIƒŒƒ“ƒWF‚Æ’ÊíF‚ÅŒğŒİ‚É“_–Å‚³‚¹‚é
-            // Time.time‚ğg‚¤‚±‚Æ‚ÅAŠÔ‚É‰‚¶‚Ä“_–Å‚ğØ‚è‘Ö‚¦‚é
+            // ãƒœã‚¹ã‚’ã‚ªãƒ¬ãƒ³ã‚¸è‰²ã¨é€šå¸¸è‰²ã§äº¤äº’ã«ç‚¹æ»…ã•ã›ã‚‹
+            // Time.timeã‚’ä½¿ã†ã“ã¨ã§ã€æ™‚é–“ã«å¿œã˜ã¦ç‚¹æ»…ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹
             brainColor = ((int)(Time.time * 14f) % 2 == 0)
                 ? new Color(1f, 0.55f, 0.1f)
                 : baseColor;
 
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
+            // æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã¾ã§å¾…ã¤
             yield return null;
         }
 
-        // —\’›‚ªI‚í‚Á‚½‚Ì‚ÅAƒ{ƒX‚ÌF‚ğŒ³‚É–ß‚·
+        // äºˆå…†ãŒçµ‚ã‚ã£ãŸã®ã§ã€ãƒœã‚¹ã®è‰²ã‚’å…ƒã«æˆ»ã™
         brainColor = baseColor;
 
-        // ó‘Ô•\¦‚ğÁ‚·
+        // çŠ¶æ…‹è¡¨ç¤ºã‚’æ¶ˆã™
         label = null;
 
-        //  ’e‚Ì˜AË 
-        // İ’è‚³‚ê‚½’e”‚¾‚¯AŒJ‚è•Ô‚µ’e‚ğ”­Ë‚·‚é
+        //  å¼¾ã®é€£å°„ 
+        // è¨­å®šã•ã‚ŒãŸå¼¾æ•°ã ã‘ã€ç¹°ã‚Šè¿”ã—å¼¾ã‚’ç™ºå°„ã™ã‚‹
         for (int i = 0; i < shotCount; i++)
         {
-            // ƒ{ƒX‚ÌŒ»İˆÊ’u‚ğ’e‚Ì”­ËˆÊ’u‚É‚·‚é
+            // ãƒœã‚¹ã®ç¾åœ¨ä½ç½®ã‚’å¼¾ã®ç™ºå°„ä½ç½®ã«ã™ã‚‹
             Vector2 origin = transform.position;
 
-            // ƒ{ƒX‚©‚çƒvƒŒƒCƒ„[‚ÉŒü‚©‚¤•ûŒü‚ğŒvZ‚µ‚ÄA³‹K‰»‚·‚é
-            // ³‹K‰»‚·‚é‚±‚Æ‚ÅA•ûŒü‚¾‚¯‚ğ•\‚·’·‚³1‚ÌƒxƒNƒgƒ‹‚É‚È‚é
+            // ãƒœã‚¹ã‹ã‚‰ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«å‘ã‹ã†æ–¹å‘ã‚’è¨ˆç®—ã—ã¦ã€æ­£è¦åŒ–ã™ã‚‹
+            // æ­£è¦åŒ–ã™ã‚‹ã“ã¨ã§ã€æ–¹å‘ã ã‘ã‚’è¡¨ã™é•·ã•1ã®ãƒ™ã‚¯ãƒˆãƒ«ã«ãªã‚‹
             Vector2 dir = ((Vector2)player.position - origin).normalized;
 
-            // ƒvƒŒƒCƒ„[‚Ì•ûŒü‚Ö’e‚ğ¶¬‚·‚é
-            // bulletSpeed‚Å’e‚Ì‘¬“xAbulletDamage‚Åƒ_ƒ[ƒW‚ğİ’è‚·‚é
-            // blockLayers‚ÉŠÜ‚Ü‚ê‚é•Ç‚â‘«ê‚É“–‚½‚é‚Æ’e‚ª~‚Ü‚é
+            // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ–¹å‘ã¸å¼¾ã‚’ç”Ÿæˆã™ã‚‹
+            // bulletSpeedã§å¼¾ã®é€Ÿåº¦ã€bulletDamageã§ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’è¨­å®šã™ã‚‹
+            // blockLayersã«å«ã¾ã‚Œã‚‹å£ã‚„è¶³å ´ã«å½“ãŸã‚‹ã¨å¼¾ãŒæ­¢ã¾ã‚‹
             BossProjectile.Spawn(origin, dir * bulletSpeed, bulletDamage, blockLayers,
                 playerCol, playerHealth, new Color(1f, 0.55f, 0.1f));
 
-            // Ÿ‚Ì’e‚ğ”­Ë‚·‚é‚Ü‚ÅAİ’è‚³‚ê‚½ŠÔ‚¾‚¯‘Ò‚Â
+            // æ¬¡ã®å¼¾ã‚’ç™ºå°„ã™ã‚‹ã¾ã§ã€è¨­å®šã•ã‚ŒãŸæ™‚é–“ã ã‘å¾…ã¤
             yield return new WaitForSeconds(shotInterval);
         }
     }
 
-    // UŒ‚ƒ^ƒCƒ~ƒ“ƒO(ƒ_ƒEƒ“):
-    // ƒ{ƒX‚ª‰©F‚­“_–Å‚·‚éB
-    // ‚±‚ÌŠÔ‚ÍƒvƒŒƒCƒ„[‚ÌUŒ‚‚É‚æ‚éƒ_ƒ[ƒW‚ª‘å‚«‚­‚È‚éB
+    // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°(ãƒ€ã‚¦ãƒ³):
+    // ãƒœã‚¹ãŒé»„è‰²ãç‚¹æ»…ã™ã‚‹ã€‚
+    // ã“ã®é–“ã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ”»æ’ƒã«ã‚ˆã‚‹ãƒ€ãƒ¡ãƒ¼ã‚¸ãŒå¤§ãããªã‚‹ã€‚
     IEnumerator DownTime(float duration)
     {
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚Å‚ ‚é‚±‚Æ‚ğ‹L˜^‚·‚é
-        // TakeDamage()‚ÅA‚±‚Ìó‘Ô‚©‚Ç‚¤‚©‚É‚æ‚Á‚Äƒ_ƒ[ƒW”{—¦‚ª•Ï‚í‚é
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ä¸­ã§ã‚ã‚‹ã“ã¨ã‚’è¨˜éŒ²ã™ã‚‹
+        // TakeDamage()ã§ã€ã“ã®çŠ¶æ…‹ã‹ã©ã†ã‹ã«ã‚ˆã£ã¦ãƒ€ãƒ¡ãƒ¼ã‚¸å€ç‡ãŒå¤‰ã‚ã‚‹
         vulnerable = true;
 
-        // ƒ{ƒX‚Ìó‘Ô•\¦‚ğuƒ`ƒƒƒ“ƒX!v‚É‚·‚é
-        label = "ƒ`ƒƒƒ“ƒX!";
+        // ãƒœã‚¹ã®çŠ¶æ…‹è¡¨ç¤ºã‚’ã€Œãƒãƒ£ãƒ³ã‚¹!ã€ã«ã™ã‚‹
+        label = "ãƒãƒ£ãƒ³ã‚¹!";
 
-        // Œo‰ßŠÔ‚ğ‰Šú‰»‚·‚é
+        // çµŒéæ™‚é–“ã‚’åˆæœŸåŒ–ã™ã‚‹
         float t = 0f;
 
-        // w’è‚³‚ê‚½ŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅŒJ‚è•Ô‚·
+        // æŒ‡å®šã•ã‚ŒãŸæ™‚é–“ãŒçµŒéã™ã‚‹ã¾ã§ç¹°ã‚Šè¿”ã™
         while (t < duration)
         {
-            // Œo‰ßŠÔ‚ğ‰ÁZ‚·‚é
+            // çµŒéæ™‚é–“ã‚’åŠ ç®—ã™ã‚‹
             t += Time.deltaTime;
 
-            // ƒ{ƒX‚ğ‰©F‚Æ’ÊíF‚ÅŒğŒİ‚É“_–Å‚³‚¹‚é
-            // Time.time‚ğg‚Á‚ÄAˆê’èŠÔŠu‚ÅF‚ğØ‚è‘Ö‚¦‚é
+            // ãƒœã‚¹ã‚’é»„è‰²ã¨é€šå¸¸è‰²ã§äº¤äº’ã«ç‚¹æ»…ã•ã›ã‚‹
+            // Time.timeã‚’ä½¿ã£ã¦ã€ä¸€å®šé–“éš”ã§è‰²ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹
             brainColor = ((int)(Time.time * 8f) % 2 == 0)
                 ? new Color(1f, 0.9f, 0.2f)
                 : baseColor;
 
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
+            // æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã¾ã§å¾…ã¤
             yield return null;
         }
 
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒO‚ªI—¹‚µ‚½‚Ì‚ÅA’Êíó‘Ô‚É–ß‚·
+        // æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ãŒçµ‚äº†ã—ãŸã®ã§ã€é€šå¸¸çŠ¶æ…‹ã«æˆ»ã™
         vulnerable = false;
 
-        // ƒ{ƒX‚ÌF‚ğŒ³‚É–ß‚·
+        // ãƒœã‚¹ã®è‰²ã‚’å…ƒã«æˆ»ã™
         brainColor = baseColor;
 
-        // ó‘Ô•\¦‚ğÁ‚·
+        // çŠ¶æ…‹è¡¨ç¤ºã‚’æ¶ˆã™
         label = null;
     }
 
-    // ‰ñ“]UŒ‚:
-    // ‘O’›‚Æ‚µ‚Äƒ{ƒX‚ğ‡F‚É“_–Å‚³‚¹A‰ñ“]‚·‚é•ûŒü‚ğ•\¦‚·‚éB
-    // ‘O’›‚ªI‚í‚é‚ÆA” ‘S‘Ì‚ğ90“x‰ñ“]‚³‚¹‚éB
+    // å›è»¢æ”»æ’ƒ:
+    // å‰å…†ã¨ã—ã¦ãƒœã‚¹ã‚’ç´«è‰²ã«ç‚¹æ»…ã•ã›ã€å›è»¢ã™ã‚‹æ–¹å‘ã‚’è¡¨ç¤ºã™ã‚‹ã€‚
+    // å‰å…†ãŒçµ‚ã‚ã‚‹ã¨ã€ç®±å…¨ä½“ã‚’90åº¦å›è»¢ã•ã›ã‚‹ã€‚
     IEnumerator RotateAttack()
     {
-        // ” ‚ğ‰ñ“]‚³‚¹‚éArenaRotator‚ğæ“¾‚·‚é
+        // ç®±ã‚’å›è»¢ã•ã›ã‚‹ArenaRotatorã‚’å–å¾—ã™ã‚‹
         var arena = ArenaRotator.Instance;
 
-        // ArenaRotator‚ª‘¶İ‚µ‚È‚¢ê‡A‚Ü‚½‚ÍŠù‚É‰ñ“]’†‚Ìê‡‚ÍI—¹‚·‚é
+        // ArenaRotatorãŒå­˜åœ¨ã—ãªã„å ´åˆã€ã¾ãŸã¯æ—¢ã«å›è»¢ä¸­ã®å ´åˆã¯çµ‚äº†ã™ã‚‹
         if (arena == null || arena.IsRotating) yield break;
 
-        // Œv‰ñ‚è‚©”½Œv‰ñ‚è‚©‚ğƒ‰ƒ“ƒ_ƒ€‚ÉŒˆ‚ß‚é
+        // æ™‚è¨ˆå›ã‚Šã‹åæ™‚è¨ˆå›ã‚Šã‹ã‚’ãƒ©ãƒ³ãƒ€ãƒ ã«æ±ºã‚ã‚‹
         var dir = Random.value < 0.5f
             ? ArenaRotator.Direction.Clockwise
             : ArenaRotator.Direction.CounterClockwise;
 
-        // ‘I‚Î‚ê‚½‰ñ“]•ûŒü‚ğ‰æ–Ê‚É•\¦‚·‚é
+        // é¸ã°ã‚ŒãŸå›è»¢æ–¹å‘ã‚’ç”»é¢ã«è¡¨ç¤ºã™ã‚‹
         label = dir == ArenaRotator.Direction.Clockwise
-            ? "‰ñ“]!  Œv‰ñ‚è"
-            : "‰ñ“]!  ”½Œv‰ñ‚è";
+            ? "å›è»¢!  æ™‚è¨ˆå›ã‚Š"
+            : "å›è»¢!  åæ™‚è¨ˆå›ã‚Š";
 
-        //‰ñ“]‘O‚Ì—\’›
-        // Œo‰ßŠÔ‚ğ‰Šú‰»‚·‚é
+        //å›è»¢å‰ã®äºˆå…†
+        // çµŒéæ™‚é–“ã‚’åˆæœŸåŒ–ã™ã‚‹
         float t = 0f;
 
-        // İ’è‚³‚ê‚½—\’›ŠÔ‚ªŒo‰ß‚·‚é‚Ü‚ÅŒJ‚è•Ô‚·
+        // è¨­å®šã•ã‚ŒãŸäºˆå…†æ™‚é–“ãŒçµŒéã™ã‚‹ã¾ã§ç¹°ã‚Šè¿”ã™
         while (t < rotateTelegraph)
         {
-            // Œo‰ßŠÔ‚ğ‰ÁZ‚·‚é
+            // çµŒéæ™‚é–“ã‚’åŠ ç®—ã™ã‚‹
             t += Time.deltaTime;
 
-            // ƒ{ƒX‚ğ‡F‚Æ’ÊíF‚ÅŒğŒİ‚É“_–Å‚³‚¹‚é
-            // Time.time‚ğg‚Á‚ÄAˆê’èŠÔŠu‚ÅF‚ğØ‚è‘Ö‚¦‚é
+            // ãƒœã‚¹ã‚’ç´«è‰²ã¨é€šå¸¸è‰²ã§äº¤äº’ã«ç‚¹æ»…ã•ã›ã‚‹
+            // Time.timeã‚’ä½¿ã£ã¦ã€ä¸€å®šé–“éš”ã§è‰²ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹
             brainColor = ((int)(Time.time * 10f) % 2 == 0)
                 ? new Color(0.7f, 0.3f, 1f)
                 : baseColor;
 
-            // Ÿ‚ÌƒtƒŒ[ƒ€‚Ü‚Å‘Ò‚Â
+            // æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã¾ã§å¾…ã¤
             yield return null;
         }
 
-        // —\’›‚ªI‚í‚Á‚½‚Ì‚ÅAƒ{ƒX‚ÌF‚ğŒ³‚É–ß‚·
+        // äºˆå…†ãŒçµ‚ã‚ã£ãŸã®ã§ã€ãƒœã‚¹ã®è‰²ã‚’å…ƒã«æˆ»ã™
         brainColor = baseColor;
 
-        // ‰ñ“]•ûŒü‚Ì•\¦‚ğÁ‚·
+        // å›è»¢æ–¹å‘ã®è¡¨ç¤ºã‚’æ¶ˆã™
         label = null;
 
-        // ” ‚Ì‰ñ“]
-        // Œˆ’è‚µ‚½•ûŒü‚É” ‚ğ‰ñ“]‚³‚¹‚é
-        // ArenaRotator‘¤‚Å90“x‚Ì‰ñ“]ˆ—‚ğs‚¤
+        // ç®±ã®å›è»¢
+        // æ±ºå®šã—ãŸæ–¹å‘ã«ç®±ã‚’å›è»¢ã•ã›ã‚‹
+        // ArenaRotatorå´ã§90åº¦ã®å›è»¢å‡¦ç†ã‚’è¡Œã†
         arena.TryRotate(dir);
     }
 
-    //  ÚGƒ_ƒ[ƒW(—‰º’†‚¾‚¯)
-    // ƒ{ƒX‚ÆƒvƒŒƒCƒ„[‚ªÚG‚µ‚Ä‚¢‚é‚©‚ğŠm”F‚µA
-    // —‰º’†‚ÉÚG‚µ‚Ä‚¢‚½ê‡‚¾‚¯ƒvƒŒƒCƒ„[‚Éƒ_ƒ[ƒW‚ğ—^‚¦‚éB
+    //  æ¥è§¦ãƒ€ãƒ¡ãƒ¼ã‚¸(è½ä¸‹ä¸­ã ã‘)
+    // ãƒœã‚¹ã¨ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒæ¥è§¦ã—ã¦ã„ã‚‹ã‹ã‚’ç¢ºèªã—ã€
+    // è½ä¸‹ä¸­ã«æ¥è§¦ã—ã¦ã„ãŸå ´åˆã ã‘ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ä¸ãˆã‚‹ã€‚
     void CheckContact()
     {
-        // ÚGƒ_ƒ[ƒW‚ª–³ŒøA‚Ü‚½‚ÍƒvƒŒƒCƒ„[‚ÌCollider‚â‘Ì—Íî•ñ‚ª‚È‚¢ê‡‚Íˆ—‚ğI—¹‚·‚é
+        // æ¥è§¦ãƒ€ãƒ¡ãƒ¼ã‚¸ãŒç„¡åŠ¹ã€ã¾ãŸã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®Colliderã‚„ä½“åŠ›æƒ…å ±ãŒãªã„å ´åˆã¯å‡¦ç†ã‚’çµ‚äº†ã™ã‚‹
         if (!contactEnabled || playerCol == null || playerHealth == null) return;
 
-        // ƒ{ƒX‚ÆƒvƒŒƒCƒ„[‚Ì“–‚½‚è”»’è‚ªd‚È‚Á‚Ä‚¢‚È‚¯‚ê‚Îˆ—‚ğI—¹‚·‚é
+        // ãƒœã‚¹ã¨ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®å½“ãŸã‚Šåˆ¤å®šãŒé‡ãªã£ã¦ã„ãªã‘ã‚Œã°å‡¦ç†ã‚’çµ‚äº†ã™ã‚‹
         if (!col.bounds.Intersects(playerCol.bounds)) return;
 
-        // ƒvƒŒƒCƒ„[‚ªƒ{ƒX‚æ‚è‰E‘¤‚É‚¢‚éê‡‚Í1A¶‘¤‚É‚¢‚éê‡‚Í-1‚É‚·‚é
-        // ƒ_ƒ[ƒW‚ğó‚¯‚½‚Æ‚«‚Ì‚«”ò‚Ô•ûŒü‚ğŒˆ‚ß‚é‚½‚ß‚Ég—p‚·‚é
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒãƒœã‚¹ã‚ˆã‚Šå³å´ã«ã„ã‚‹å ´åˆã¯1ã€å·¦å´ã«ã„ã‚‹å ´åˆã¯-1ã«ã™ã‚‹
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸã¨ãã®å¹ãé£›ã¶æ–¹å‘ã‚’æ±ºã‚ã‚‹ãŸã‚ã«ä½¿ç”¨ã™ã‚‹
         int fromDir = player.position.x >= transform.position.x ? 1 : -1;
 
-        // ƒvƒŒƒCƒ„[‚É—‰ºUŒ‚‚Ìƒ_ƒ[ƒW‚ğ—^‚¦‚é
-        // –³“GŠÔ‚ÌŠÇ—‚ÍPlayerHealth‘¤‚Ås‚¤
+        // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«è½ä¸‹æ”»æ’ƒã®ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ä¸ãˆã‚‹
+        // ç„¡æ•µæ™‚é–“ã®ç®¡ç†ã¯PlayerHealthå´ã§è¡Œã†
         playerHealth.TakeDamage(diveDamage, fromDir);
     }
 
-    //  •\¦ 
-    // —‰ºUŒ‚‚Ì—\’›‚Æ‚µ‚Ä•\¦‚·‚éü(LineRenderer)‚ğì¬‚·‚é
-    LineRenderer MakeLine()
+    // è½ä¸‹æ”»æ’ƒã®ç€åœ°ç‚¹ã‚’ç¤ºã™ãƒãƒ¼ã‚«ãƒ¼ã‚’ä½œæˆã™ã‚‹
+    GameObject MakeMarker(string objectName)
     {
-        // ü‚ğ•\¦‚·‚é‚½‚ß‚ÌGameObject‚ğì¬‚·‚é
-        var go = new GameObject("BossSlamLine");
+        // ãƒãƒ¼ã‚«ãƒ¼ç”¨ã®GameObjectã‚’ä½œæˆã™ã‚‹
+        var go = new GameObject(objectName);
 
-        // ƒ{ƒX‚ÌqƒIƒuƒWƒFƒNƒg‚É‚µ‚ÄAƒ{ƒX‚Æˆê‚ÉŠÇ—‚Å‚«‚é‚æ‚¤‚É‚·‚é
-        go.transform.SetParent(transform, false);
-
-        // LineRendererƒRƒ“ƒ|[ƒlƒ“ƒg‚ğ’Ç‰Á‚·‚é
-        var lr = go.AddComponent<LineRenderer>();
-
-        // ü‚ÌÀ•W‚ğƒ[ƒ‹ƒhÀ•W‚Åw’è‚·‚é
-        lr.useWorldSpace = true;
-
-        // ü‚Ìn“_‚ÆI“_‚Ì2“_‚ğİ’è‚Å‚«‚é‚æ‚¤‚É‚·‚é
-        lr.positionCount = 2;
-
-        // Inspector‚Åİ’è‚³‚ê‚½ƒ}ƒeƒŠƒAƒ‹‚ğg—p‚·‚é
-        // İ’è‚³‚ê‚Ä‚¢‚È‚¢ê‡‚ÍA•W€‚ÌSprites/Default‚ğg—p‚·‚é
-        lr.material = lineMaterial != null
-            ? lineMaterial
-            : new Material(Shader.Find("Sprites/Default"));
-
-        // ü‚Ì‘¾‚³‚ğİ’è‚·‚é
-        lr.widthMultiplier = 0.2f;
-
-        // •`‰æ‡‚ğİ’è‚·‚é(”š‚ª‘å‚«‚¢‚Ù‚Çè‘O‚É•\¦‚³‚ê‚é)
-        lr.sortingOrder = 5;
-
-        // Å‰‚Íü‚ğ”ñ•\¦‚É‚µ‚Ä‚¨‚­
-        lr.enabled = false;
-
-        // ì¬‚µ‚½LineRenderer‚ğ•Ô‚·
-        return lr;
-    }
-
-    // —‰ºUŒ‚‚Ì’…’n“_‚ğ¦‚·ƒ}[ƒJ[‚ğì¬‚·‚é
-    GameObject MakeMarker()
-    {
-        // ƒ}[ƒJ[—p‚ÌGameObject‚ğì¬‚·‚é
-        var go = new GameObject("BossSlamMarker");
-
-        // ƒ}[ƒJ[‚ÉSpriteRenderer‚ğ’Ç‰Á‚·‚é
+        // ãƒãƒ¼ã‚«ãƒ¼ã«SpriteRendererã‚’è¿½åŠ ã™ã‚‹
         var msr = go.AddComponent<SpriteRenderer>();
 
-        // BossShockwave‚Åg—p‚µ‚Ä‚¢‚élŠpŒ`‚ÌƒXƒvƒ‰ƒCƒg‚ğİ’è‚·‚é
+        // BossShockwaveã§ä½¿ç”¨ã—ã¦ã„ã‚‹å››è§’å½¢ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚’è¨­å®šã™ã‚‹
         msr.sprite = BossShockwave.SquareSprite;
 
-        // •`‰æ‡‚ğİ’è‚·‚é(”š‚ª‘å‚«‚¢‚Ù‚Çè‘O‚É•\¦‚³‚ê‚é)
+        // æç”»é †ã‚’è¨­å®šã™ã‚‹(æ•°å­—ãŒå¤§ãã„ã»ã©æ‰‹å‰ã«è¡¨ç¤ºã•ã‚Œã‚‹)
         msr.sortingOrder = 4;
 
-        // ƒ}[ƒJ[‚Ì‘å‚«‚³‚ğ’Êí‚Ì1.5”{‚É‚·‚é
+        // æ­£æ–¹å½¢ã‚’45åº¦å›è»¢ã•ã›ã€ã²ã—å½¢ã«ã™ã‚‹
         go.transform.localScale = Vector3.one * 1.5f;
+        go.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
 
-        // ì¬’¼Œã‚Íƒ}[ƒJ[‚ğ”ñ•\¦‚É‚µ‚Ä‚¨‚­
+        // ä½œæˆç›´å¾Œã¯ãƒãƒ¼ã‚«ãƒ¼ã‚’éè¡¨ç¤ºã«ã—ã¦ãŠã
         go.SetActive(false);
 
-        // ì¬‚µ‚½ƒ}[ƒJ[‚ÌGameObject‚ğ•Ô‚·
+        // ä½œæˆã—ãŸãƒãƒ¼ã‚«ãƒ¼ã®GameObjectã‚’è¿”ã™
         return go;
     }
 
-    // —‰ºUŒ‚‚Ì—\’›•\¦‚Ì“§–¾“x‚ğ•ÏX‚·‚é
-    // a : “§–¾“x(0‚É‹ß‚¢‚Ù‚Ç“§–¾A1‚É‹ß‚¢‚Ù‚Ç•s“§–¾)
-    void SetTelegraphAlpha(float a)
-    {
-        // ÔF‚ğƒx[ƒX‚ÉAˆø”a‚Å“§–¾“x‚ğİ’è‚·‚é
-        var c = new Color(1f, 0.2f, 0.2f, a);
-
-        // —\’›ü‚Ìn“_‚ÌF‚Æ“§–¾“x‚ğ•ÏX‚·‚é
-        slamLine.startColor = c;
-
-        // —\’›ü‚ÌI“_‚ÌF‚Æ“§–¾“x‚ğ•ÏX‚·‚é
-        slamLine.endColor = c;
-
-        // ’…’n“_ƒ}[ƒJ[‚ÌSpriteRenderer‚ğæ“¾‚·‚é
-        var msr = marker.GetComponent<SpriteRenderer>();
-
-        // ƒ}[ƒJ[‚ÌF‚ğÔF‚É‚µA“§–¾“x‚ğa‚Ì80%‚Éİ’è‚·‚é
-        // ü‚æ‚è­‚µ”–‚­•\¦‚·‚é‚±‚Æ‚ÅAŒ©‚½–Ú‚ğ’²®‚·‚é
-        msr.color = new Color(1f, 0.2f, 0.2f, a * 0.8f);
-    }
-
-    //  ‰æ–Ê‚Éƒ{ƒX‚Ìî•ñ‚ğ•\¦‚·‚é 
+    //  ç”»é¢ã«ãƒœã‚¹ã®æƒ…å ±ã‚’è¡¨ç¤ºã™ã‚‹ 
     void OnGUI()
     {
-        // ƒŒƒxƒ‹•ÒW‰æ–ÊA‚Ü‚½‚ÍƒŠƒUƒ‹ƒg‰æ–Ê‚Å‚Í•\¦‚µ‚È‚¢
+        // ãƒ¬ãƒ™ãƒ«ç·¨é›†ç”»é¢ã€ã¾ãŸã¯ãƒªã‚¶ãƒ«ãƒˆç”»é¢ã§ã¯è¡¨ç¤ºã—ãªã„
         if (LevelEditor.IsEditing || RunController.IsResultShowing) return;
 
-        //  ƒ{ƒX‚Ì‘Ì—Íƒo[ 
-        float w = 300f, h = 18f;  // ‘Ì—Íƒo[‚Ì•‚Æ‚‚³
-        float x = 30f, y = 100f;  // ‰æ–Ê¶ã‚©‚ç‚Ì•\¦ˆÊ’u
+        // ãƒœã‚¹ã®ä½“åŠ›ãƒãƒ¼
+        float w = 20f;       // æ¨ªå¹…
+        float h = 250f;      // é«˜ã•
+        float x = 30f;       // ç”»é¢å·¦ã‹ã‚‰ã®ä½ç½®
+        float y = 150f;      // ç”»é¢ä¸Šã‹ã‚‰ã®ä½ç½®
 
-        // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚Í‰©FA‚»‚êˆÈŠO‚Í•‚Á‚Û‚¢F‚Å˜g‚ğ•\¦
-        GUI.color = vulnerable ? new Color(1f, 0.9f, 0.2f, 0.9f) : new Color(0f, 0f, 0f, 0.7f);
-        GUI.DrawTexture(new Rect(x - 3f, y - 3f, w + 6f, h + 6f), Texture2D.whiteTexture);
+        // ç¾åœ¨ã®HPå‰²åˆ
+        float hpRate = Mathf.Clamp01(hp / maxHp);
 
-        // ‘Ì—Íƒo[‚Ì”wŒi‚ğ•F‚Å•\¦
-        GUI.color = new Color(0f, 0f, 0f, 0.85f);
-        GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
+        // ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’å—ã‘ãŸç›´å¾Œã‹ã©ã†ã‹
+        bool isFlashing = Time.time - lastHitTime < hitFlashDuration;
 
-        // Œ»İ‚Ì‘Ì—Í‚É‰‚¶‚ÄÔF‚Ìƒo[‚ğ•\¦
-        // hp / maxHp ‚É‚æ‚Á‚ÄAc‚è‘Ì—Í‚É‡‚í‚¹‚Ä‰¡•‚ğ•Ï‚¦‚é
-        GUI.color = new Color(0.85f, 0.2f, 0.25f);
-        GUI.DrawTexture(new Rect(x, y, w * hp / maxHp, h), Texture2D.whiteTexture);
+        // ç‚¹æ»…ã®åˆ‡ã‚Šæ›¿ãˆ
+        bool flashOn = isFlashing &&
+            Mathf.FloorToInt(Time.time * 12f) % 2 == 0;
 
-        // GUI‚ÌF‚ğ”’F‚É–ß‚·
+        // æ ã®è‰²
+        GUI.color = flashOn ? Color.white : new Color(0f, 0f, 0f, 0.8f);
+        GUI.DrawTexture(
+            new Rect(x - 3f, y - 3f, w + 6f, h + 6f),
+            Texture2D.whiteTexture
+        );
+
+        // èƒŒæ™¯
+        GUI.color = Color.black;
+        GUI.DrawTexture(
+            new Rect(x, y, w, h),
+            Texture2D.whiteTexture
+        );
+
+        // HPã®æ®‹é‡ï¼ˆä¸‹ã‹ã‚‰ä¸Šã«è¡¨ç¤ºï¼‰
+        GUI.color = flashOn ? Color.white : new Color(0.85f, 0.2f, 0.25f);
+
+        float fillHeight = h * hpRate;
+
+        GUI.DrawTexture(
+            new Rect(x, y + h - fillHeight, w, fillHeight),
+            Texture2D.whiteTexture
+        );
+
+        // GUIã®è‰²ã‚’ç™½ã«æˆ»ã™
         GUI.color = Color.white;
 
-        // ƒ{ƒX‚Ì–¼‘O‚ÆŒ»İ‚Ì‘Ì—Í‚ğ•\¦
-        GUI.Label(new Rect(x, y - 24f, w, 24f), $"ƒtƒŒ[ƒ€   {Mathf.CeilToInt(hp)}/{maxHp}");
+        // ãƒœã‚¹ã®åå‰ã¨ç¾åœ¨ã®ä½“åŠ›
+        GUI.Label(
+            new Rect(x - 10f, y - 30f, 100f, 24f),
+            $"ãƒ•ãƒ¬ãƒ¼ãƒ  {Mathf.CeilToInt(hp)}/{maxHp}"
+        );
 
-        //  ‘O’›‚ÆUŒ‚ƒ^ƒCƒ~ƒ“ƒO‚Ì•\¦ 
-        // label‚É•¶š‚ªİ’è‚³‚ê‚Ä‚¢‚éê‡‚¾‚¯•\¦‚·‚é
+        // å‰å…†ã¨æ”»æ’ƒã‚¿ã‚¤ãƒŸãƒ³ã‚°ã®è¡¨ç¤º
         if (!string.IsNullOrEmpty(label))
         {
-            // GUIStyle‚ª‚Ü‚¾ì‚ç‚ê‚Ä‚¢‚È‚¢ê‡A‰‰ñ‚¾‚¯ì¬‚·‚é
             if (bigStyle == null)
             {
                 bigStyle = new GUIStyle(GUI.skin.label)
                 {
-                    fontSize = 48,                       // •¶š‚Ì‘å‚«‚³
-                    alignment = TextAnchor.MiddleCenter, // ‰æ–Ê’†‰›‚É”z’u
-                    fontStyle = FontStyle.Bold           // ‘¾š‚É‚·‚é
+                    fontSize = 48,
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Bold
                 };
             }
 
-            // UŒ‚ƒ^ƒCƒ~ƒ“ƒO’†‚Í‰©FA‚»‚êˆÈŠO‚ÍƒIƒŒƒ“ƒWF‚Å•¶š‚ğ•\¦
-            bigStyle.normal.textColor = vulnerable
-                ? new Color(1f, 0.95f, 0.3f)
-                : new Color(1f, 0.85f, 0.3f);
+            bigStyle.normal.textColor = new Color(1f, 0.85f, 0.3f);
 
-            // ‰æ–Ê’†‰›•t‹ß‚ÉAŒ»İ‚Ìs“®‚ğ•\¦‚·‚é
             GUI.Label(
                 new Rect(0f, Screen.height * 0.2f, Screen.width, 80f),
                 label,

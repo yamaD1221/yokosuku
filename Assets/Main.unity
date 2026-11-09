@@ -249,7 +249,7 @@ GameObject:
   - component: {fileID: 221892984}
   - component: {fileID: 221892983}
   - component: {fileID: 221892982}
-  - component: {fileID: 221892981}
+  - component: {fileID: 221892985}
   m_Layer: 11
   m_Name: Boss
   m_TagString: Untagged
@@ -257,48 +257,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &221892981
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 221892980}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bcf7f0b4e415de24989227b3d99e7758, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FrameBoss
-  maxHp: 40
-  vulnerableMultiplier: 2
-  normalMultiplier: 0.5
-  idleTime: 2
-  moveTime: 0.4
-  initialObjectSearchDistance: 4
-  farDistance: 9
-  rotateChance: 0.25
-  rotateCooldown: 8
-  slamTelegraph: 0.9
-  slamLockTime: 0.3
-  diveTime: 0.35
-  diveDamage: 1
-  downTimeAfterSlam: 3
-  waveSpeed: 30
-  waveRadius: 0.9
-  waveInset: 0.45
-  waveDamage: 1
-  shootTelegraph: 0.5
-  shotCount: 7
-  shotInterval: 0.12
-  bulletSpeed: 14
-  bulletDamage: 1
-  downTimeAfterShoot: 2
-  blockLayers:
-    serializedVersion: 2
-    m_Bits: 576
-  rotateTelegraph: 1.2
-  defeatDelay: 0.8
-  lineMaterial: {fileID: 0}
 --- !u!61 &221892982
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -419,6 +377,47 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &221892985
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221892980}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30bac7f5b4e8b2a44b84944f606bbe30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FrameBoss
+  maxHp: 40
+  vulnerableMultiplier: 2
+  normalMultiplier: 0.5
+  idleTime: 0.2
+  teleportBlinkInterval: 0.5
+  teleportBlinkFastInterval: 0.06
+  destinationPadding: 0.15
+  initialObjectSearchDistance: 8
+  farDistance: 9
+  rotateChance: 0.25
+  rotateCooldown: 8
+  diveDamage: 1
+  downTimeAfterSlam: 3
+  waveSpeed: 30
+  waveRadius: 0.9
+  waveInset: 0.45
+  wavePathSampleSpacing: 0.15
+  waveDamage: 1
+  shootTelegraph: 0.5
+  shotCount: 7
+  shotInterval: 0.12
+  bulletSpeed: 14
+  bulletDamage: 1
+  downTimeAfterShoot: 2
+  blockLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  rotateTelegraph: 1.2
+  defeatDelay: 0.8
 --- !u!1 &503912901
 GameObject:
   m_ObjectHideFlags: 0
@@ -783,7 +782,7 @@ GameObject:
   m_Component:
   - component: {fileID: 949205686}
   - component: {fileID: 949205685}
-  - component: {fileID: 949205687}
+  - component: {fileID: 949205688}
   m_Layer: 6
   m_Name: ArenaRoot
   m_TagString: Ground
@@ -831,7 +830,7 @@ Transform:
   - {fileID: 1083873122}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &949205687
+--- !u!114 &949205688
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -840,7 +839,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 949205684}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f7b5d53cc0b44c546977dd61b6c6a9b4, type: 3}
+  m_Script: {fileID: 11500000, guid: 32cb8fba36e4f8647bba1d02986f44e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArenaObstacleGenerator
   obstaclePrefabs:
@@ -1863,7 +1862,6 @@ MonoBehaviour:
   moveSnap: 0.5
   rotateStep: 15
   minSize: 0.25
-  editHalfRange: 4
 --- !u!4 &2048306604
 Transform:
   m_ObjectHideFlags: 0
