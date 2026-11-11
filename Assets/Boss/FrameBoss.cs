@@ -69,6 +69,16 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [Header("撃破")]
     [SerializeField] private float defeatDelay = 0.8f;              // 撃破演出後、結果画面を出すまでの時間
 
+    // 回転予告用の箱の淵の発光
+    private GameObject[] rotationEdgeLights = new GameObject[4];
+
+    // 発光させる色
+    [SerializeField]
+    private Color rotationEdgeColor =
+        new Color(0.7f, 0.3f, 1f, 0.9f);
+
+    // 淵の光の太さ
+    [SerializeField] private float rotationEdgeThickness = 0.12f;
 
     // 現在のボスの体力
     private float hp;
@@ -230,6 +240,14 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // このボスが現在のInstanceなら、参照を解除
         if (Instance == this) Instance = null;
+
+        HideRotationEdgeLights();
+
+        foreach (GameObject light in rotationEdgeLights)
+        {
+            if (light != null)
+                Destroy(light);
+        }
     }
 
     // 箱の内側の範囲を取得する
@@ -1252,56 +1270,146 @@ public class FrameBoss : MonoBehaviour, IDamageable
         label = null;
     }
 
+    // 回転予告用の淵の光を作成する
+    void CreateRotationEdgeLights()
+    {
+        Rect r = Inner();
+
+        // 上・右・下・左の順番で作成
+        Vector2[] positions =
+        {
+        new Vector2(r.center.x, r.yMax),
+        new Vector2(r.xMax, r.center.y),
+        new Vector2(r.center.x, r.yMin),
+        new Vector2(r.xMin, r.center.y)
+    };
+
+        Vector2[] sizes =
+        {
+        new Vector2(r.width, rotationEdgeThickness),
+        new Vector2(rotationEdgeThickness, r.height),
+        new Vector2(r.width, rotationEdgeThickness),
+        new Vector2(rotationEdgeThickness, r.height)
+    };
+
+        for (int i = 0; i < 4; i++)
+        {
+            // まだ作成されていなければ作成
+            if (rotationEdgeLights[i] == null)
+            {
+                GameObject light = new GameObject("RotationEdgeLight");
+                SpriteRenderer renderer = light.AddComponent<SpriteRenderer>();
+
+                renderer.sprite = BossShockwave.SquareSprite;
+                renderer.sortingOrder = 20;
+                renderer.color = rotationEdgeColor;
+
+                rotationEdgeLights[i] = light;
+            }
+
+            // 位置と大きさを設定
+            rotationEdgeLights[i].transform.position = positions[i];
+            rotationEdgeLights[i].transform.localScale =
+                new Vector3(sizes[i].x, sizes[i].y, 1f);
+
+            // 最初は非表示
+            rotationEdgeLights[i].SetActive(false);
+        }
+    }
+
+    // すべての淵の光を消す
+    void HideRotationEdgeLights()
+    {
+        foreach (GameObject light in rotationEdgeLights)
+        {
+            if (light != null)
+                light.SetActive(false);
+        }
+    }
+
+    // 回転方向に沿って淵を順番に光らせる
+    IEnumerator PlayRotationEdgeTelegraph(ArenaRotator.Direction dir)
+    {
+        CreateRotationEdgeLights();
+
+        // 時計回りなら上→右→下→左
+        // 反時計回りなら上→左→下→右
+        int[] order;
+
+        if (dir == ArenaRotator.Direction.Clockwise)
+        {
+            order = new int[] { 0, 1, 2, 3 };
+        }
+        else
+        {
+            order = new int[] { 0, 3, 2, 1 };
+        }
+
+        // 4辺を光らせる時間
+        float interval = rotateTelegraph / 4f;
+
+        for (int i = 0; i < 4; i++)
+        {
+            // 次の辺を光らせる
+            rotationEdgeLights[order[i]].SetActive(true);
+
+            // 次の辺に移るまで待つ
+            yield return new WaitForSeconds(interval);
+        }
+
+        // 一周したらすべて消す
+        HideRotationEdgeLights();
+    }
+
     // 回転攻撃:
     // 前兆としてボスを紫色に点滅させ、回転する方向を表示する。
     // 前兆が終わると、箱全体を90度回転させる。
+    // 回転攻撃
     IEnumerator RotateAttack()
     {
-        // 箱を回転させるArenaRotatorを取得する
+        // 箱を回転させるArenaRotatorを取得
         var arena = ArenaRotator.Instance;
 
-        // ArenaRotatorが存在しない場合、または既に回転中の場合は終了する
-        if (arena == null || arena.IsRotating) yield break;
+        if (arena == null || arena.IsRotating)
+            yield break;
 
-        // 時計回りか反時計回りかをランダムに決める
+        // 回転方向をランダムに決める
         var dir = Random.value < 0.5f
             ? ArenaRotator.Direction.Clockwise
             : ArenaRotator.Direction.CounterClockwise;
 
-        // 選ばれた回転方向を画面に表示する
-        label = dir == ArenaRotator.Direction.Clockwise
-            ? "回転!  時計回り"
-            : "回転!  反時計回り";
+        // 画面に表示する文字は使用しない
+        label = null;
 
-        //回転前の予兆
-        // 経過時間を初期化する
+        // ボスを紫色に点滅させる処理と、
+        // 箱の淵を順番に光らせる処理を同時に実行
+        Coroutine edgeEffect = StartCoroutine(
+            PlayRotationEdgeTelegraph(dir)
+        );
+
         float t = 0f;
 
-        // 設定された予兆時間が経過するまで繰り返す
         while (t < rotateTelegraph)
         {
-            // 経過時間を加算する
             t += Time.deltaTime;
 
-            // ボスを紫色と通常色で交互に点滅させる
-            // Time.timeを使って、一定間隔で色を切り替える
             brainColor = ((int)(Time.time * 10f) % 2 == 0)
                 ? new Color(0.7f, 0.3f, 1f)
                 : baseColor;
 
-            // 次のフレームまで待つ
             yield return null;
         }
 
-        // 予兆が終わったので、ボスの色を元に戻す
+        // ボスの色を元に戻す
         brainColor = baseColor;
 
-        // 回転方向の表示を消す
-        label = null;
+        // 発光処理が残っていた場合は停止
+        if (edgeEffect != null)
+            StopCoroutine(edgeEffect);
 
-        // 箱の回転
-        // 決定した方向に箱を回転させる
-        // ArenaRotator側で90度の回転処理を行う
+        HideRotationEdgeLights();
+
+        // 箱を90度回転させる
         arena.TryRotate(dir);
     }
 
