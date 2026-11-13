@@ -23,6 +23,9 @@ public class ArenaCamera : MonoBehaviour
     // 毎フレーム取得しなくていいように、最初に1回だけ取得する
     private Camera cam;
 
+    [SerializeField] private Transform background;
+    [SerializeField] private float backgroundDistance = 20f;
+
     // Awake：ゲーム開始時に1回だけ実行。Cameraを取得して保存する
     void Awake()
     {
@@ -95,5 +98,33 @@ public class ArenaCamera : MonoBehaviour
         // カメラの位置を設定する
         // Zは-10に固定して、2Dの箱より手前にカメラを配置する
         transform.position = new Vector3(pos.x, pos.y, -10f);
+
+        // 背景をカメラの子として配置する
+        if (background != null)
+        {
+            background.localPosition = new Vector3(0f, 0f, backgroundDistance);
+
+            // カメラに映る範囲を取得
+            float height = cam.orthographicSize * 2f;
+            float width = height * cam.aspect;
+
+            // 元画像の縦横比を取得
+            SpriteRenderer sr = background.GetComponent<SpriteRenderer>();
+
+            if (sr != null && sr.sprite != null)
+            {
+                float imageWidth = sr.sprite.bounds.size.x;
+                float imageHeight = sr.sprite.bounds.size.y;
+
+                // 画面全体を覆うために必要な拡大率を計算
+                float scale = Mathf.Max(
+                    width / imageWidth,
+                    height / imageHeight
+                );
+
+                // 縦横比を維持して拡大
+                background.localScale = new Vector3(scale, scale, 1f);
+            }
+        }
     }
 }

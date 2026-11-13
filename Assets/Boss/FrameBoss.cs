@@ -63,7 +63,7 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     // 回転攻撃
     [Header("回転攻撃")]
-    [SerializeField] private float rotateTelegraph = 1.2f;          // 箱を回転させる前の予兆時間
+    [SerializeField] private float rotateTelegraph = 3.0f;          // 箱を回転させる前の予兆時間
 
     // 撃破
     [Header("撃破")]
@@ -76,6 +76,16 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [SerializeField]
     private Color rotationEdgeColor =
         new Color(0.7f, 0.3f, 1f, 0.9f);
+
+    // 回転予告の光の線
+    private GameObject rotationLineObject;
+    private LineRenderer rotationLine;
+
+    [SerializeField]
+    private Color rotationLineColor =
+        new Color(1f, 0.45f, 0.05f, 1f);
+
+    [SerializeField] private float rotationLineWidth = 0.15f;
 
     // 淵の光の太さ
     [SerializeField] private float rotationEdgeThickness = 0.12f;
@@ -241,12 +251,15 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // このボスが現在のInstanceなら、参照を解除
         if (Instance == this) Instance = null;
 
-        HideRotationEdgeLights();
-
         foreach (GameObject light in rotationEdgeLights)
         {
             if (light != null)
                 Destroy(light);
+        }
+
+        if (rotationLineObject != null)
+        {
+            Destroy(rotationLineObject);
         }
     }
 
@@ -1270,121 +1283,138 @@ public class FrameBoss : MonoBehaviour, IDamageable
         label = null;
     }
 
-    // 回転予告用の淵の光を作成する
-    void CreateRotationEdgeLights()
+
+    IEnumerator PlayRotationLine(ArenaRotator.Direction dir)
     {
         Rect r = Inner();
 
-        // 上・右・下・左の順番で作成
-        Vector2[] positions =
-        {
-        new Vector2(r.center.x, r.yMax),
-        new Vector2(r.xMax, r.center.y),
-        new Vector2(r.center.x, r.yMin),
-        new Vector2(r.xMin, r.center.y)
-    };
+        // 上辺中央をスタート地点にする
+        Vector3 topCenter = new Vector3(r.center.x, r.yMax, 0f);
+        Vector3 topRight = new Vector3(r.xMax, r.yMax, 0f);
+        Vector3 bottomRight = new Vector3(r.xMax, r.yMin, 0f);
+        Vector3 bottomLeft = new Vector3(r.xMin, r.yMin, 0f);
+        Vector3 topLeft = new Vector3(r.xMin, r.yMax, 0f);
 
-        Vector2[] sizes =
-        {
-        new Vector2(r.width, rotationEdgeThickness),
-        new Vector2(rotationEdgeThickness, r.height),
-        new Vector2(r.width, rotationEdgeThickness),
-        new Vector2(rotationEdgeThickness, r.height)
-    };
-
-        for (int i = 0; i < 4; i++)
-        {
-            // まだ作成されていなければ作成
-            if (rotationEdgeLights[i] == null)
-            {
-                GameObject light = new GameObject("RotationEdgeLight");
-                SpriteRenderer renderer = light.AddComponent<SpriteRenderer>();
-
-                renderer.sprite = BossShockwave.SquareSprite;
-                renderer.sortingOrder = 20;
-                renderer.color = rotationEdgeColor;
-
-                rotationEdgeLights[i] = light;
-            }
-
-            // 位置と大きさを設定
-            rotationEdgeLights[i].transform.position = positions[i];
-            rotationEdgeLights[i].transform.localScale =
-                new Vector3(sizes[i].x, sizes[i].y, 1f);
-
-            // 最初は非表示
-            rotationEdgeLights[i].SetActive(false);
-        }
-    }
-
-    // すべての淵の光を消す
-    void HideRotationEdgeLights()
-    {
-        foreach (GameObject light in rotationEdgeLights)
-        {
-            if (light != null)
-                light.SetActive(false);
-        }
-    }
-
-    // 回転方向に沿って淵を順番に光らせる
-    IEnumerator PlayRotationEdgeTelegraph(ArenaRotator.Direction dir)
-    {
-        CreateRotationEdgeLights();
-
-        // 時計回りなら上→右→下→左
-        // 反時計回りなら上→左→下→右
-        int[] order;
+        // 回転方向によって線を伸ばす順番を変更
+        Vector3[] path;
 
         if (dir == ArenaRotator.Direction.Clockwise)
         {
-            order = new int[] { 0, 1, 2, 3 };
+            path = new Vector3[]
+            {
+            topCenter,
+            topRight,
+            bottomRight,
+            bottomLeft,
+            topLeft,
+            topCenter
+            };
         }
         else
         {
-            order = new int[] { 0, 3, 2, 1 };
+            path = new Vector3[]
+            {
+            topCenter,
+            topLeft,
+            bottomLeft,
+            bottomRight,
+            topRight,
+            topCenter
+            };
         }
 
-        // 4辺を光らせる時間
-        float interval = rotateTelegraph / 4f;
+        // 線を作成
+        rotationLineObject = new GameObject("RotationLine");
+        rotationLine = rotationLineObject.AddComponent<LineRenderer>();
 
-        for (int i = 0; i < 4; i++)
+        rotationLine.useWorldSpace = true;
+        rotationLine.startWidth = rotationLineWidth;
+        rotationLine.endWidth = rotationLineWidth;
+        rotationLine.startColor = rotationLineColor;
+        rotationLine.endColor = rotationLineColor;
+
+        rotationLine.material = new Material(Shader.Find("Sprites/Default"));
+        rotationLine.sortingOrder = 20;
+
+        rotationLine.positionCount = 1;
+        rotationLine.SetPosition(0, topCenter);
+
+        // 線全体の長さを計算
+        float totalLength = 0f;
+
+        for (int i = 0; i < path.Length - 1; i++)
         {
-            // 次の辺を光らせる
-            rotationEdgeLights[order[i]].SetActive(true);
-
-            // 次の辺に移るまで待つ
-            yield return new WaitForSeconds(interval);
+            totalLength += Vector3.Distance(path[i], path[i + 1]);
         }
 
-        // 一周したらすべて消す
-        HideRotationEdgeLights();
+        float elapsed = 0f;
+
+        // 予告時間を使って線を伸ばす
+        while (elapsed < rotateTelegraph)
+        {
+            elapsed += Time.deltaTime;
+
+            float progress = Mathf.Clamp01(elapsed / rotateTelegraph);
+            float currentLength = totalLength * progress;
+
+            float remaining = currentLength;
+
+            List<Vector3> points = new List<Vector3>();
+            points.Add(path[0]);
+
+            for (int i = 0; i < path.Length - 1; i++)
+            {
+                float segmentLength =
+                    Vector3.Distance(path[i], path[i + 1]);
+
+                if (remaining >= segmentLength)
+                {
+                    points.Add(path[i + 1]);
+                    remaining -= segmentLength;
+                }
+                else
+                {
+                    Vector3 currentPoint = Vector3.Lerp(
+                        path[i],
+                        path[i + 1],
+                        remaining / segmentLength
+                    );
+
+                    points.Add(currentPoint);
+                    break;
+                }
+            }
+
+            rotationLine.positionCount = points.Count;
+            rotationLine.SetPositions(points.ToArray());
+
+            yield return null;
+        }
+
+        // 最後に一周分の線を確実に完成させる
+        rotationLine.positionCount = path.Length;
+        rotationLine.SetPositions(path);
     }
 
     // 回転攻撃:
-    // 前兆としてボスを紫色に点滅させ、回転する方向を表示する。
     // 前兆が終わると、箱全体を90度回転させる。
-    // 回転攻撃
     IEnumerator RotateAttack()
     {
-        // 箱を回転させるArenaRotatorを取得
         var arena = ArenaRotator.Instance;
 
         if (arena == null || arena.IsRotating)
             yield break;
 
-        // 回転方向をランダムに決める
+        // 回転方向をランダムに決定
         var dir = Random.value < 0.5f
             ? ArenaRotator.Direction.Clockwise
             : ArenaRotator.Direction.CounterClockwise;
 
-        // 画面に表示する文字は使用しない
         label = null;
 
-        // ボスを紫色に点滅させる処理と、
-        // 箱の淵を順番に光らせる処理を同時に実行
+        // ボスの予告演出
         Coroutine edgeEffect = StartCoroutine(
-            PlayRotationEdgeTelegraph(dir)
+            PlayRotationLine(dir)
         );
 
         float t = 0f;
@@ -1400,17 +1430,28 @@ public class FrameBoss : MonoBehaviour, IDamageable
             yield return null;
         }
 
-        // ボスの色を元に戻す
         brainColor = baseColor;
 
-        // 発光処理が残っていた場合は停止
+        // 線の描画が完了するまで待つ
         if (edgeEffect != null)
-            StopCoroutine(edgeEffect);
+            yield return edgeEffect;
 
-        HideRotationEdgeLights();
-
-        // 箱を90度回転させる
+        // 箱を回転させる
         arena.TryRotate(dir);
+
+        // 箱の回転が終わるまで線を残す
+        while (arena.IsRotating)
+        {
+            yield return null;
+        }
+
+        // 回転終了後に線を消す
+        if (rotationLineObject != null)
+        {
+            Destroy(rotationLineObject);
+            rotationLineObject = null;
+            rotationLine = null;
+        }
     }
 
     //  接触ダメージ(落下中だけ)
