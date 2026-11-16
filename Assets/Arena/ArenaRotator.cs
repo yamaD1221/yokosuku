@@ -15,13 +15,23 @@ public class ArenaRotator : MonoBehaviour
 
     [Header("箱の大きさ")]
     [SerializeField] private float innerSize = 16f;           // 内側の空間の一辺（戦う場所の大きさ）
-    [SerializeField] private float wallThickness = 0.5f;      // 壁の厚さ
+    [SerializeField] private float wallThickness = 10.0f;      // 壁の厚さ
 
     [Header("壁(空なら、子の Floor / Ceiling / LeftWall / RightWall を探す)")]
     [SerializeField] private Transform floorWall;             // 下の壁
     [SerializeField] private Transform ceilingWall;           // 上の壁
     [SerializeField] private Transform leftWall;              // 左の壁
-    [SerializeField] private Transform rightWall;             // 右の壁
+    [SerializeField] private Transform rightWall; 
+    [SerializeField] private Transform m_floorWall;            
+    [SerializeField] private Transform m_ceilingWall;          
+    [SerializeField] private Transform m_leftWall;             
+    [SerializeField] private Transform m_rightWall;
+    [SerializeField] private Transform o_floorWall;
+    [SerializeField] private Transform o_ceilingWall;
+    [SerializeField] private Transform o_leftWall;
+    [SerializeField] private Transform o_rightWall;
+
+    [SerializeField] private float lightLineThickness = 0.4f;
 
     [Header("回転")]
     [SerializeField] private float rotateDuration = 4f;       // 回転にかける秒数
@@ -89,6 +99,14 @@ public class ArenaRotator : MonoBehaviour
         if (ceilingWall == null) ceilingWall = transform.Find("Ceiling");
         if (leftWall == null) leftWall = transform.Find("LeftWall");
         if (rightWall == null) rightWall = transform.Find("RightWall");
+        if (m_floorWall == null) m_floorWall = transform.Find("M_Floor");
+        if (m_ceilingWall == null) m_ceilingWall = transform.Find("M_Ceiling");
+        if (m_leftWall == null) m_leftWall = transform.Find("M_LeftWall");
+        if (m_rightWall == null) m_rightWall = transform.Find("M_RightWall");
+        if (o_floorWall == null) o_floorWall = transform.Find("O_Floor");
+        if (o_ceilingWall == null) o_ceilingWall = transform.Find("O_Ceiling");
+        if (o_leftWall == null) o_leftWall = transform.Find("O_LeftWall");
+        if (o_rightWall == null) o_rightWall = transform.Find("O_RightWall");
 
         // 箱の内側の半分の大きさ、壁の厚さ、外側の大きさを取得
         float h = innerSize * 0.5f;
@@ -100,7 +118,60 @@ public class ArenaRotator : MonoBehaviour
         PlaceWall(ceilingWall, new Vector2(0f, h + t * 0.5f), new Vector2(outer, t));
         PlaceWall(leftWall, new Vector2(-(h + t * 0.5f), 0f), new Vector2(t, outer));
         PlaceWall(rightWall, new Vector2(h + t * 0.5f, 0f), new Vector2(t, outer));
+        // 装飾用の金属板
+        float margin = 0.2f;
+
+        PlaceWall(m_floorWall, new Vector2(0f, -(h + t * 0.5f)),new Vector2(outer - margin, t - margin));
+        PlaceWall(m_ceilingWall,new Vector2(0f, h + t * 0.5f),new Vector2(outer - margin, t - margin));
+        PlaceWall(m_leftWall,new Vector2(-(h + t * 0.5f), 0f),new Vector2(t - margin, outer - margin));
+        PlaceWall(m_rightWall,new Vector2(h + t * 0.5f, 0f),new Vector2(t - margin, outer - margin));
+        // オレンジのエネルギーライン
+        float w = lightLineThickness;
+
+        // 上下のライン：外側の端まで伸ばす
+        float horizontalLength = innerSize + t + w;
+
+        // 左右のライン：上下のラインの内側で止める
+        float verticalLength = innerSize + t - w;
+
+        // 上
+        PlaceWall(o_ceilingWall,
+            new Vector2(0f, h + t * 0.5f),
+            new Vector2(horizontalLength, w));
+
+        // 下
+        PlaceWall(o_floorWall,
+            new Vector2(0f, -(h + t * 0.5f)),
+            new Vector2(horizontalLength, w));
+
+        // 左
+        PlaceWall(o_leftWall,
+            new Vector2(-(h + t * 0.5f), 0f),
+            new Vector2(w, verticalLength));
+
+        // 右
+        PlaceWall(o_rightWall,
+            new Vector2(h + t * 0.5f, 0f),
+            new Vector2(w, verticalLength));
+
+        // 黒い土台を背面にする
+        SetSortingOrder(floorWall, 0);
+        SetSortingOrder(ceilingWall, 0);
+        SetSortingOrder(leftWall, 0);
+        SetSortingOrder(rightWall, 0);
+
+        // ガンメタルを前面にする
+        SetSortingOrder(m_floorWall, 1);
+        SetSortingOrder(m_ceilingWall, 1);
+        SetSortingOrder(m_leftWall, 1);
+        SetSortingOrder(m_rightWall, 1);
+
+        SetSortingOrder(o_floorWall, 2);
+        SetSortingOrder(o_ceilingWall, 2);
+        SetSortingOrder(o_leftWall, 2);
+        SetSortingOrder(o_rightWall, 2);
     }
+
 
     // PlaceWall：指定した壁の位置と大きさを設定する
     static void PlaceWall(Transform wall, Vector2 localPos, Vector2 size)
@@ -111,6 +182,19 @@ public class ArenaRotator : MonoBehaviour
         // 壁の位置と大きさを設定（ローカル座標）
         wall.localPosition = new Vector3(localPos.x, localPos.y, 0f);
         wall.localScale = new Vector3(size.x, size.y, 1f);
+    }
+
+    // 表示順を設定する
+    static void SetSortingOrder(Transform wall, int order)
+    {
+        if (wall == null) return;
+
+        SpriteRenderer sr = wall.GetComponent<SpriteRenderer>();
+
+        if (sr != null)
+        {
+            sr.sortingOrder = order;
+        }
     }
 
     // Update：毎フレーム実行。キー入力の確認と箱の回転処理を行う
