@@ -83,7 +83,7 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     [SerializeField]
     private Color rotationLineColor =
-        new Color(1f, 0.45f, 0.05f, 1f);
+    new Color(1f, 0.45f, 0.05f, 1f);
 
     [SerializeField] private float rotationLineWidth = 0.15f;
 
@@ -1286,7 +1286,16 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     IEnumerator PlayRotationLine(ArenaRotator.Direction dir)
     {
-        Rect r = Inner();
+        // 二重枠のちょうど中間にチャージ線を配置する
+        Rect inner = Inner();
+        float frameHalfSize = 15.75f;
+
+        Rect r = new Rect(
+            inner.center.x - frameHalfSize,
+            inner.center.y - frameHalfSize,
+            frameHalfSize * 2f,
+            frameHalfSize * 2f
+        );
 
         // 上辺中央をスタート地点にする
         Vector3 topCenter = new Vector3(r.center.x, r.yMax, 0f);

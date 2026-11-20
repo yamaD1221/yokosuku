@@ -26,12 +26,9 @@ public class ArenaRotator : MonoBehaviour
     [SerializeField] private Transform m_ceilingWall;          
     [SerializeField] private Transform m_leftWall;             
     [SerializeField] private Transform m_rightWall;
-    [SerializeField] private Transform o_floorWall;
-    [SerializeField] private Transform o_ceilingWall;
-    [SerializeField] private Transform o_leftWall;
-    [SerializeField] private Transform o_rightWall;
-
-    [SerializeField] private float lightLineThickness = 0.4f;
+    [Header("オレンジの枠線")]
+    [SerializeField] private LineRenderer arenaFrameLine;
+    [SerializeField] private LineRenderer arenaFrameInnerLine;
 
     [Header("回転")]
     [SerializeField] private float rotateDuration = 4f;       // 回転にかける秒数
@@ -103,10 +100,21 @@ public class ArenaRotator : MonoBehaviour
         if (m_ceilingWall == null) m_ceilingWall = transform.Find("M_Ceiling");
         if (m_leftWall == null) m_leftWall = transform.Find("M_LeftWall");
         if (m_rightWall == null) m_rightWall = transform.Find("M_RightWall");
-        if (o_floorWall == null) o_floorWall = transform.Find("O_Floor");
-        if (o_ceilingWall == null) o_ceilingWall = transform.Find("O_Ceiling");
-        if (o_leftWall == null) o_leftWall = transform.Find("O_LeftWall");
-        if (o_rightWall == null) o_rightWall = transform.Find("O_RightWall");
+        if (arenaFrameLine == null)
+        {
+            Transform frame = transform.Find("ArenaFrameLine");
+
+            if (frame != null)
+                arenaFrameLine = frame.GetComponent<LineRenderer>();
+        }
+
+        if (arenaFrameInnerLine == null)
+        {
+            Transform frame = transform.Find("ArenaFrameLineInner");
+
+            if (frame != null)
+                arenaFrameInnerLine = frame.GetComponent<LineRenderer>();
+        }
 
         // 箱の内側の半分の大きさ、壁の厚さ、外側の大きさを取得
         float h = innerSize * 0.5f;
@@ -125,34 +133,11 @@ public class ArenaRotator : MonoBehaviour
         PlaceWall(m_ceilingWall,new Vector2(0f, h + t * 0.5f),new Vector2(outer - margin, t - margin));
         PlaceWall(m_leftWall,new Vector2(-(h + t * 0.5f), 0f),new Vector2(t - margin, outer - margin));
         PlaceWall(m_rightWall,new Vector2(h + t * 0.5f, 0f),new Vector2(t - margin, outer - margin));
-        // オレンジのエネルギーライン
-        float w = lightLineThickness;
+        // 外側の枠線
+        SetFrameLine(arenaFrameLine, 16f);
 
-        // 上下のライン：外側の端まで伸ばす
-        float horizontalLength = innerSize + t + w;
-
-        // 左右のライン：上下のラインの内側で止める
-        float verticalLength = innerSize + t - w;
-
-        // 上
-        PlaceWall(o_ceilingWall,
-            new Vector2(0f, h + t * 0.5f),
-            new Vector2(horizontalLength, w));
-
-        // 下
-        PlaceWall(o_floorWall,
-            new Vector2(0f, -(h + t * 0.5f)),
-            new Vector2(horizontalLength, w));
-
-        // 左
-        PlaceWall(o_leftWall,
-            new Vector2(-(h + t * 0.5f), 0f),
-            new Vector2(w, verticalLength));
-
-        // 右
-        PlaceWall(o_rightWall,
-            new Vector2(h + t * 0.5f, 0f),
-            new Vector2(w, verticalLength));
+        // 内側の枠線
+        SetFrameLine(arenaFrameInnerLine, 15.5f);
 
         // 黒い土台を背面にする
         SetSortingOrder(floorWall, 0);
@@ -166,10 +151,32 @@ public class ArenaRotator : MonoBehaviour
         SetSortingOrder(m_leftWall, 1);
         SetSortingOrder(m_rightWall, 1);
 
-        SetSortingOrder(o_floorWall, 2);
-        SetSortingOrder(o_ceilingWall, 2);
-        SetSortingOrder(o_leftWall, 2);
-        SetSortingOrder(o_rightWall, 2);
+    }
+
+    // 四角形の枠線を設定する
+    void SetFrameLine(LineRenderer line, float halfSize)
+    {
+        if (line == null) return;
+
+        // ワールド座標で描画する
+        line.useWorldSpace = true;
+        line.loop = true;
+        line.positionCount = 4;
+
+        // ArenaRootを基準に四隅の座標を計算する
+        line.SetPosition(0, transform.TransformPoint(
+            new Vector3(-halfSize, -halfSize, 0f)));
+
+        line.SetPosition(1, transform.TransformPoint(
+            new Vector3(halfSize, -halfSize, 0f)));
+
+        line.SetPosition(2, transform.TransformPoint(
+            new Vector3(halfSize, halfSize, 0f)));
+
+        line.SetPosition(3, transform.TransformPoint(
+            new Vector3(-halfSize, halfSize, 0f)));
+
+        line.sortingOrder = 100;
     }
 
 
