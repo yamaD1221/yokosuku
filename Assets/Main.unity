@@ -2215,6 +2215,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7665820247803881891, guid: c6572a4c579fd2b4e9db5f8643235aa9, type: 3}
+      propertyPath: damage
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7665820247803881891, guid: c6572a4c579fd2b4e9db5f8643235aa9, type: 3}
       propertyPath: enemyLayer.m_Bits
       value: 2056
       objectReference: {fileID: 0}

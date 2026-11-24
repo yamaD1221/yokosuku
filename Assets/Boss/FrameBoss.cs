@@ -22,7 +22,7 @@ public class FrameBoss : MonoBehaviour, IDamageable
     // 移動
     [Header("移動")]
     [SerializeField] private float idleTime = 0.2f;               // 次の行動に移るまでの待ち時間
-    private const float moveTime = 3f;                       // ワープ前の予告時間（必ず3秒）
+    private const float moveTime = 1.7f;                       // ワープ前の予告時間（必ず3秒）
     [SerializeField] private float teleportBlinkInterval = 0.5f;  // 点滅開始時の間隔
     [SerializeField] private float teleportBlinkFastInterval = 0.06f; // カウント終了直前の点滅間隔
     [SerializeField] private float destinationPadding = 0.15f;     // ボスの幅に追加する余裕
@@ -41,7 +41,7 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [Header("落下攻撃")]
     // 落下攻撃の予告時間は移動と同じ moveTime(3秒) を使用する
     [SerializeField] private int diveDamage = 1;                   // 落下中にボス本体へ触れたときのダメージ
-    [SerializeField] private float downTimeAfterSlam = 3f;         // 落下攻撃後の攻撃チャンスの時間
+    [SerializeField] private float downTimeAfterSlam = 2f;         // 落下攻撃後の攻撃チャンスの時間
 
     // 衝撃波(箱の壁に沿って、両側へ走る)
     [Header("衝撃波(箱の壁に沿って、両側へ走る)")]
@@ -169,6 +169,22 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     // 次に回転攻撃を選択できる時刻
     private float nextRotateTime;
+
+    // 通常攻撃の種類
+    private enum MainAttackType
+    {
+        Shoot,  // 遠距離攻撃
+        Slam    // 落下攻撃
+    }
+
+    // 直近の通常攻撃
+    private MainAttackType lastMainAttack;
+
+    // 同じ通常攻撃が連続した回数
+    private int consecutiveMainAttackCount = 0;
+
+    // 初回はまだ攻撃していない
+    private bool hasMainAttackHistory = false;
 
     void Awake()
     {
@@ -519,6 +535,11 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // ボスの行動を管理するコルーチンを再開
         brain = StartCoroutine(Brain());
+
+        // 通常攻撃の履歴をリセット
+        hasMainAttackHistory = false;
+        consecutiveMainAttackCount = 0;
+        lastMainAttack = MainAttackType.Shoot;
     }
 
     // 飛んでいる弾と、走っている衝撃波をすべて削除する
@@ -541,46 +562,74 @@ public class FrameBoss : MonoBehaviour, IDamageable
     }
 
     // ボスの行動を繰り返し実行する
+    // ボスの行動を繰り返し実行する
     IEnumerator Brain()
     {
-        // ボスが撃破されるまで行動を繰り返す
         while (!defeated)
         {
-            // 次の行動を開始するまで指定した時間だけ待つ
             yield return new WaitForSeconds(idleTime);
 
-            // ときどき回転攻撃を行う
+            // 回転攻撃の抽選
             var arena = ArenaRotator.Instance;
 
-            // 箱が回転中でなく、回転攻撃の待ち時間が終わっていて、
-            // 設定した確率に当たった場合、回転攻撃を行う
-            if (arena != null && !arena.IsRotating && Time.time >= nextRotateTime && Random.value < rotateChance)
+            if (arena != null &&
+                !arena.IsRotating &&
+                Time.time >= nextRotateTime &&
+                Random.value < rotateChance)
+            {
                 yield return RotateAttack();
+            }
 
-            // 現在いる壁とは別の壁へ移動する
+            // 別の場所へ移動
             yield return MoveToAnotherWall();
 
-            // プレイヤーとの距離を調べ、遠いかどうかを判定する
-            bool far = player != null && Vector2.Distance(player.position, transform.position) > farDistance;
+            // プレイヤーとの距離を確認
+            bool far = player != null &&
+                Vector2.Distance(player.position, transform.position) > farDistance;
 
-            // プレイヤーが遠い場合
-            if (far)
+            // 今回行う通常攻撃を決定
+            MainAttackType nextAttack;
+
+            if (hasMainAttackHistory &&
+                consecutiveMainAttackCount >= 2)
             {
-                // 遠距離攻撃を行う
-                yield return ShootAttack();
-
-                // 攻撃後、指定した時間だけ攻撃タイミングにする
-                yield return DownTime(downTimeAfterShoot);
+                // 同じ攻撃が2回連続していたら、必ず反対の攻撃にする
+                nextAttack = lastMainAttack == MainAttackType.Shoot
+                    ? MainAttackType.Slam
+                    : MainAttackType.Shoot;
             }
-            // プレイヤーが近い場合、またはプレイヤーが見つからない場合
             else
             {
-                // 落下攻撃を行う
-                yield return SlamAttack();
+                // 通常時はプレイヤーとの距離で攻撃を決める
+                nextAttack = far
+                    ? MainAttackType.Shoot
+                    : MainAttackType.Slam;
+            }
 
-                // 攻撃後、指定した時間だけ攻撃タイミングにする
+            // 選んだ攻撃を実行
+            if (nextAttack == MainAttackType.Shoot)
+            {
+                yield return ShootAttack();
+                yield return DownTime(downTimeAfterShoot);
+            }
+            else
+            {
+                yield return SlamAttack();
                 yield return DownTime(downTimeAfterSlam);
             }
+
+            // 攻撃履歴を更新
+            if (hasMainAttackHistory && lastMainAttack == nextAttack)
+            {
+                consecutiveMainAttackCount++;
+            }
+            else
+            {
+                consecutiveMainAttackCount = 1;
+            }
+
+            lastMainAttack = nextAttack;
+            hasMainAttackHistory = true;
         }
     }
 
@@ -880,7 +929,7 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         rb.bodyType = RigidbodyType2D.Dynamic;
         rb.gravityScale = 1f;
-        rb.linearVelocity = new Vector2(0f, -15f);
+        rb.linearVelocity = new Vector2(0f, -22f);
         rb.angularVelocity = 0f;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
