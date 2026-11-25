@@ -28,6 +28,12 @@ public class BossProjectile : MonoBehaviour
     // 弾が存在できる時間
     private float life = 5f;
 
+    // 黄色い壁(NotStickWall)で跳ね返った弾かどうか（跳ね返しは1回だけ）
+    private bool reflected;
+
+    // 弾の見た目（跳ね返ったときに色を変えるために保持する）
+    private SpriteRenderer sr;
+
     // Spawn：弾を生成して、位置・速度・ダメージなどを設定する
     public static BossProjectile Spawn(Vector2 pos, Vector2 vel, int damage, LayerMask blockMask,
         Collider2D playerCol, PlayerHealth playerHealth, Color color)
@@ -53,6 +59,7 @@ public class BossProjectile : MonoBehaviour
 
         // BossProjectileを追加して、弾の情報を保存する
         var b = go.AddComponent<BossProjectile>();
+        b.sr = sr;
         b.velocity = vel;
         b.damage = damage;
         b.blockMask = blockMask;
@@ -92,13 +99,54 @@ public class BossProjectile : MonoBehaviour
             // 高速で移動しても壁をすり抜けないようにする
             RaycastHit2D hit = Physics2D.CircleCast(pos, radius, step / dist, dist, blockMask);
 
-            // 壁や足場に当たった場合は弾を削除する
-            if (hit.collider != null) { Destroy(gameObject); return; }
+            // 壁や足場に当たった場合の処理
+            if (hit.collider != null)
+            {
+                // 黄色い壁(NotStickWall)なら、1回だけ反射角そのままに跳ね返す
+                // 狙ってボスへ向かわせることはせず、置いた角度次第で当たるだけにする
+                bool isNoStick = hit.collider.gameObject.layer ==
+                    LayerMask.NameToLayer("NotStickWall");
+
+                if (isNoStick && !reflected)
+                {
+                    reflected = true;
+                    velocity = Vector2.Reflect(velocity, hit.normal);
+                    transform.position = hit.point + hit.normal * (radius + 0.02f);
+
+                    // 跳ね返ったことが分かるように色を変える
+                    if (sr != null) sr.color = new Color(1f, 0.9f, 0.2f);
+
+                    return;
+                }
+
+                // それ以外の壁・足場に当たった場合と、2回目の反射は弾を削除する
+                Destroy(gameObject); return;
+            }
         }
 
         // 当たり判定に問題がなければ弾を移動させる
         pos += step;
         transform.position = pos;
+
+        // 跳ね返った弾はプレイヤーではなくボスに当たる
+        if (reflected)
+        {
+            var boss = FrameBoss.Instance;
+            if (boss != null)
+            {
+                var bossCol = boss.GetComponent<Collider2D>();
+                if (bossCol != null)
+                {
+                    Vector2 bossClosest = bossCol.ClosestPoint(pos);
+                    if ((bossClosest - pos).sqrMagnitude <= radius * radius)
+                    {
+                        boss.TakeDamage(damage, velocity.x >= 0f ? 1 : -1);
+                        Destroy(gameObject);
+                    }
+                }
+            }
+            return;
+        }
 
         // プレイヤーに当たったらダメージを与える
         if (playerCol != null && playerHealth != null)

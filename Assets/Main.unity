@@ -593,7 +593,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30bac7f5b4e8b2a44b84944f606bbe30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FrameBoss
-  maxHp: 40
+  maxHp: 100
   vulnerableMultiplier: 2
   normalMultiplier: 0.5
   idleTime: 0.2
@@ -619,7 +619,7 @@ MonoBehaviour:
   downTimeAfterShoot: 2
   blockLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 512
   rotateTelegraph: 3
   defeatDelay: 0.8
   rotationEdgeColor: {r: 0.7, g: 0.3, b: 1, a: 0.9}
@@ -2748,6 +2748,8 @@ MonoBehaviour:
   moveSnap: 0.5
   rotateStep: 15
   minSize: 0.25
+  maxNoStickWallCount: 3
+  maxNoStickWallSize: 4
 --- !u!4 &2048306604
 Transform:
   m_ObjectHideFlags: 0

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,13 +23,20 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float cooldown = 0.3f;
 
     // 近接攻撃で与えるダメージ量
-    [SerializeField] private int damage = 1;
+    [SerializeField] private int damage = 4;
+
+    // ヒットストップ：攻撃が当たった瞬間だけ時間を止めて手応えを出す
+    [SerializeField] private float hitStopDuration = 0.03f; // 止める時間（実時間・秒）
+    [SerializeField] private float hitStopTimeScale = 0.05f; // 止めている間の時間の進み方（0で完全停止）
 
     // 攻撃によって切断するロープのLayer
     [SerializeField] private LayerMask ropeLayer;
 
     // 次に攻撃できるようになるゲーム内時刻
     private float nextAttackTime;
+
+    // ヒットストップ中かどうか
+    private bool hitStopRunning;
 
     // オブジェクト生成時に1回実行される
     void Awake()
@@ -91,6 +99,9 @@ public class PlayerAttack : MonoBehaviour
             enemyLayer
         );
 
+        // この攻撃で何かに当てたかどうか（ヒットストップ用）
+        bool hitLanded = false;
+
         // 攻撃範囲内で検出したオブジェクトを1つずつ確認する
         foreach (var h in hits)
         {
@@ -102,6 +113,7 @@ public class PlayerAttack : MonoBehaviour
                 // Enemyが見つかった場合、ダメージを与える
                 // player.Facingでプレイヤーの向きも渡す
                 enemy.TakeDamage(damage, player.Facing);
+                hitLanded = true;
 
                 // 攻撃が当たった場所に火花を発生させる
                 HitSparkEffect.Play(h.ClosestPoint(center), direction);
@@ -118,11 +130,35 @@ public class PlayerAttack : MonoBehaviour
             {
                 // IDamageableを実装した対象にダメージを与える
                 target.TakeDamage(damage, player.Facing);
+                hitLanded = true;
                 // 攻撃が当たった場所に火花を発生させる
                 HitSparkEffect.Play(h.ClosestPoint(center), direction);
             }
         }
-       
+
+        // 何かに当てていたらヒットストップをかける
+        if (hitLanded)
+            StartCoroutine(HitStop());
+    }
+
+    // ヒットストップ：短時間だけ時間の進みを落として、元に戻す
+    IEnumerator HitStop()
+    {
+        // すでにヒットストップ中なら重ねない
+        if (hitStopRunning) yield break;
+        hitStopRunning = true;
+
+        float prev = Time.timeScale;
+        Time.timeScale = hitStopTimeScale;
+
+        // timeScaleの影響を受けない実時間で待つ
+        yield return new WaitForSecondsRealtime(hitStopDuration);
+
+        // ほかの処理がtimeScaleを変えていたら、そちらを優先する
+        if (Mathf.Approximately(Time.timeScale, hitStopTimeScale))
+            Time.timeScale = prev;
+
+        hitStopRunning = false;
     }
 
     // 選択中のオブジェクトの攻撃範囲をSceneビューに表示する

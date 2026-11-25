@@ -93,6 +93,11 @@ public class LevelEditor : MonoBehaviour
     // オブジェクトの最小サイズ
     // オブジェクトを縮小するとき、この値より小さくならないようにする
     [SerializeField] private float minSize = 0.25f;
+
+    // 黄色い壁(NotStickWall)の配置上限（防御専用部品を強くしすぎないため）
+    [Header("黄色い壁(NotStickWall)の上限")]
+    [SerializeField] private int maxNoStickWallCount = 3;   // 置ける個数の上限
+    [SerializeField] private float maxNoStickWallSize = 4f; // 1個の幅・高さの上限
     //[SerializeField] private float editHalfRange = 4f;
 
     // オブジェクトをドラッグして操作するときの状態
@@ -1135,6 +1140,13 @@ public class LevelEditor : MonoBehaviour
             // SnapSizeを通すことで、設定されているサイズの刻みに合わせて変更する
             newH = SnapSize(Vector2.Dot(v, up) * handle.y);
 
+        // 黄色い壁(NotStickWall)は1個の大きさにも上限を付ける
+        if (current.gameObject.layer == LayerMask.NameToLayer("NotStickWall"))
+        {
+            newW = Mathf.Min(newW, maxNoStickWallSize);
+            newH = Mathf.Min(newH, maxNoStickWallSize);
+        }
+
         // 現在のオブジェクトの中心位置をワールド座標で取得する
         // サイズ変更後に新しい中心位置を計算するために使用する
         Vector2 centerWorld = t.TransformPoint(c);
@@ -1611,6 +1623,24 @@ public class LevelEditor : MonoBehaviour
         // InstantiateするPrefabがない状態で生成処理を行うとエラーになるため、先に処理を終了する
         if (item.prefab == null)
             return null;
+
+        // 黄色い壁(NotStickWall)は上限数までしか置けない
+        if (item.prefab.layer == LayerMask.NameToLayer("NotStickWall"))
+        {
+            int noStickCount = 0;
+            foreach (var root in Roots())
+            {
+                for (int i = 0; i < root.childCount; i++)
+                {
+                    if (root.GetChild(i).gameObject.layer ==
+                        LayerMask.NameToLayer("NotStickWall"))
+                        noStickCount++;
+                }
+            }
+
+            if (noStickCount >= maxNoStickWallCount)
+                return null;
+        }
 
         // 選択中のアイテムのPrefabを新しく生成する
         // ToPosで配置位置を箱の内側やグリッドに合わせ、

@@ -15,7 +15,7 @@ public class PlayerKnifeThrow : MonoBehaviour
     [SerializeField] private Vector2 spawnOffset = new Vector2(0.6f, -0.3f);
 
     // ナイフを投げる間隔（秒）
-    [SerializeField] private float cooldown = 0.4f;
+    [SerializeField] private float cooldown = 0.55f;
 
     // 同時に存在できるナイフの最大数
     [SerializeField] private int maxKnives = 4;

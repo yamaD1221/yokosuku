@@ -203,7 +203,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   cooldown: 0.3
-  damage: 1
+  damage: 4
+  hitStopDuration: 0.03
+  hitStopTimeScale: 0.05
   ropeLayer:
     serializedVersion: 2
     m_Bits: 256
@@ -222,7 +224,7 @@ MonoBehaviour:
   player: {fileID: 0}
   knifePrefab: {fileID: 3442978129449714953, guid: 0b14d9bbe59e10f4aa20e8cff391b87c, type: 3}
   spawnOffset: {x: 0.6, y: -0.3}
-  cooldown: 0.4
+  cooldown: 0.55
   maxKnives: 4
 --- !u!114 &6822538812058659169
 MonoBehaviour:

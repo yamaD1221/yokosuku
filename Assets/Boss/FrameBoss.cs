@@ -170,6 +170,17 @@ public class FrameBoss : MonoBehaviour, IDamageable
     // 次に回転攻撃を選択できる時刻
     private float nextRotateTime;
 
+    // 落下攻撃で最後に着地した足場のCollider（黄色い壁の耐久判定に使う）
+    private Collider2D lastLandingCollider;
+
+    // 落下中にすり抜けるStickWall(白ground)のCollider一覧（落下後に元へ戻す）
+    private readonly System.Collections.Generic.List<Collider2D> fallIgnoredColliders =
+        new System.Collections.Generic.List<Collider2D>();
+
+    // 黄色い壁(NotStickWall)が落下攻撃を受けた回数（1回でヒビ、2回で破壊）
+    private readonly System.Collections.Generic.Dictionary<Collider2D, int> noStickSlamHits =
+        new System.Collections.Generic.Dictionary<Collider2D, int>();
+
     // 通常攻撃の種類
     private enum MainAttackType
     {
@@ -535,6 +546,10 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // ボスの行動を管理するコルーチンを再開
         brain = StartCoroutine(Brain());
+
+        // 黄色い壁の耐久記録をリセット
+        noStickSlamHits.Clear();
+        lastLandingCollider = null;
 
         // 通常攻撃の履歴をリセット
         hasMainAttackHistory = false;
@@ -923,6 +938,10 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // マーカーが示していた位置に出現し、下方向へ落下する。
         SetPos(spawnPosition);
+
+        // 落下中だけ、白ground(StickWall)との衝突を無効にしてすり抜ける
+        BeginFallThroughStickWalls();
+
         isFalling = true;
         hasLanded = false;
         contactEnabled = true;
@@ -951,6 +970,12 @@ public class FrameBoss : MonoBehaviour, IDamageable
         rb.bodyType = RigidbodyType2D.Kinematic;
         isFalling = false;
         contactEnabled = false;
+
+        // 白groundとの衝突を元に戻す
+        EndFallThroughStickWalls();
+
+        // 黄色い壁に着地した場合は耐久処理（1回でヒビ、2回で破壊）
+        RegisterNoStickSlamHit(lastLandingCollider);
 
         if (!hasLanded)
             SetPos(landing);
@@ -984,6 +1009,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
+        // 着地候補がなければ床に着地するものとして記録を消しておく
+        lastLandingCollider = null;
+
         foreach (RaycastHit2D hit in hits)
         {
             if (hit.collider == null ||
@@ -992,12 +1020,20 @@ public class FrameBoss : MonoBehaviour, IDamageable
                 hit.collider.isTrigger)
                 continue;
 
+            // 白ground(StickWall)は落下攻撃を通すので、着地候補にしない
+            // ただし初期配置物(InitialObj)は今まで通り着地する
+            if (IsFallThroughGround(hit.collider))
+                continue;
+
             // ボスが乗れないほど狭い足場は着地点にしない。
             Bounds bounds = hit.collider.bounds;
             float requiredWidth = halfSize.x * 2f + destinationPadding * 2f;
 
             if (bounds.size.x < requiredWidth)
                 continue;
+
+            // 着地する足場を記録する（黄色い壁なら耐久処理に使う）
+            lastLandingCollider = hit.collider;
 
             return new Vector2(x, hit.point.y + halfSize.y);
         }
@@ -1049,6 +1085,11 @@ public class FrameBoss : MonoBehaviour, IDamageable
         if (!isFalling || collision == null)
             return;
 
+        // 白ground(StickWall)には着地しない（落下攻撃は通す）
+        // 初期配置物(InitialObj)には着地する
+        if (collision.collider != null && IsFallThroughGround(collision.collider))
+            return;
+
         // プレイヤーとの接触は着地として扱わない。
         if (playerCol != null && collision.collider == playerCol)
             return;
@@ -1062,6 +1103,73 @@ public class FrameBoss : MonoBehaviour, IDamageable
                 return;
             }
         }
+    }
+
+    // 落下攻撃が通り抜ける対象かどうか
+    // 白ground(StickWall)のうち、初期配置物(InitialObj)ではない物だけを通す
+    bool IsFallThroughGround(Collider2D c)
+    {
+        if (c == null) return false;
+        if (c.gameObject.layer != LayerMask.NameToLayer("StickWall")) return false;
+        if (c.CompareTag("InitialObj")) return false;
+        return true;
+    }
+
+    // 落下中だけ、白ground(StickWall)との衝突を無効にする
+    void BeginFallThroughStickWalls()
+    {
+        fallIgnoredColliders.Clear();
+
+        if (col == null) return;
+
+        foreach (Collider2D c in FindObjectsByType<Collider2D>(FindObjectsSortMode.None))
+        {
+            if (c == null || c == col || c.isTrigger) continue;
+            if (!IsFallThroughGround(c)) continue;
+
+            Physics2D.IgnoreCollision(col, c, true);
+            fallIgnoredColliders.Add(c);
+        }
+    }
+
+    // BeginFallThroughStickWallsで無効にした衝突を元に戻す
+    void EndFallThroughStickWalls()
+    {
+        if (col != null)
+        {
+            foreach (Collider2D c in fallIgnoredColliders)
+            {
+                if (c != null)
+                    Physics2D.IgnoreCollision(col, c, false);
+            }
+        }
+
+        fallIgnoredColliders.Clear();
+    }
+
+    // 黄色い壁(NotStickWall)が落下攻撃を受けたときの処理
+    // 1回目: ヒビの代わりに色を暗くする / 2回目: その壁を壊す
+    void RegisterNoStickSlamHit(Collider2D platform)
+    {
+        if (platform == null) return;
+        if (platform.gameObject.layer != LayerMask.NameToLayer("NotStickWall")) return;
+
+        int count = 0;
+        noStickSlamHits.TryGetValue(platform, out count);
+        count++;
+        noStickSlamHits[platform] = count;
+
+        if (count >= 2)
+        {
+            noStickSlamHits.Remove(platform);
+            Destroy(platform.gameObject);
+            return;
+        }
+
+        // 1回目: ヒビが入ったことが分かるように暗くする
+        SpriteRenderer wallSr = platform.GetComponentInChildren<SpriteRenderer>();
+        if (wallSr != null)
+            wallSr.color = new Color(0.65f, 0.5f, 0.1f);
     }
 
     // 衝撃波：初期障害物の内側にできた凹凸の輪郭を取得し、着地点から両方向へ走らせる。
