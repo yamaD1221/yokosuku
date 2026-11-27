@@ -33,6 +33,17 @@ public class BossShockwave : MonoBehaviour
     private Collider2D playerCol;
     private PlayerHealth playerHealth;
 
+    // 見た目用：元の色と、火花を出す間隔の管理
+    private Color baseColor;
+    private float sparkTimer;
+
+    // ギザギザ形の見た目（本体と芯）と、ちらつき・脈動の管理
+    private SpriteRenderer bodySr;
+    private SpriteRenderer coreSr;
+    private Vector3 baseScale = Vector3.one;
+    private float flickerTimer;
+    private int flickerIndex;
+
     // 経路を指定して衝撃波を生成する。
     public static void Spawn(IList<Vector2> contour, float startDistance, int direction,
         float speed, float distance, float radius, int damage,
@@ -42,10 +53,29 @@ public class BossShockwave : MonoBehaviour
 
         GameObject go = new GameObject("BossShockwave");
         SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SquareSprite;
+        sr.sprite = BossFx.JaggedSprite(0);
         sr.color = color;
         sr.sortingOrder = 7;
-        go.transform.localScale = Vector3.one * radius * 2f;
+        go.transform.localScale = new Vector3(radius * 1.5f, radius * 2.2f, 1f);
+
+        // 中心に明るい芯を重ねる（炎の芯のイメージ）
+        var core = new GameObject("WaveCore");
+        core.transform.SetParent(go.transform, false);
+        core.transform.localScale = Vector3.one * 0.55f;
+        var coreSr = core.AddComponent<SpriteRenderer>();
+        coreSr.sprite = BossFx.JaggedSprite(1);
+        coreSr.color = new Color(1f, 0.85f, 0.4f, 0.95f);
+        coreSr.sortingOrder = 8;
+
+        // 後ろに色の残像（軌跡）を残す
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.28f;
+        trail.startWidth = radius * 1.5f;
+        trail.endWidth = 0f;
+        trail.startColor = new Color(color.r, color.g, color.b, 0.45f);
+        trail.endColor = new Color(color.r, color.g, color.b, 0f);
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.sortingOrder = 6;
 
         BossShockwave wave = go.AddComponent<BossShockwave>();
         wave.path = new Vector2[contour.Count];
@@ -59,6 +89,10 @@ public class BossShockwave : MonoBehaviour
         wave.damage = damage;
         wave.playerCol = playerCol;
         wave.playerHealth = playerHealth;
+        wave.baseColor = color;
+        wave.bodySr = sr;
+        wave.coreSr = coreSr;
+        wave.baseScale = go.transform.localScale;
         go.transform.position = wave.PointAtDistance(wave.distanceAlongPath);
     }
 
@@ -84,10 +118,46 @@ public class BossShockwave : MonoBehaviour
         float step = speed * dt;
         distanceAlongPath = Mathf.Repeat(distanceAlongPath + direction * step, totalLength);
         remaining -= step;
-        if (remaining <= 0f) { Destroy(gameObject); return; }
+        if (remaining <= 0f)
+        {
+            // 消える場所で小さく火花を散らす
+            BossFx.SparkBurst(transform.position, baseColor, 6, 2.5f, 0.11f, 0.4f);
+            Destroy(gameObject); return;
+        }
 
         Vector2 pos = PointAtDistance(distanceAlongPath);
         transform.position = pos;
+
+        // 進行方向を向く（経路の少し先の点との角度）
+        Vector2 ahead = PointAtDistance(distanceAlongPath + direction * 0.15f);
+        Vector2 moveDir = ahead - pos;
+        if (moveDir.sqrMagnitude > 0.0001f)
+        {
+            float angle = Mathf.Atan2(moveDir.y, moveDir.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        }
+
+        // 大きさをわずかに脈動させる
+        float pulse = 1f + 0.13f * Mathf.Sin(Time.time * 22f);
+        transform.localScale = baseScale * pulse;
+
+        // ギザギザの形を切り替えて、火花がちらつくように見せる
+        flickerTimer -= dt;
+        if (flickerTimer <= 0f)
+        {
+            flickerTimer = 0.06f;
+            flickerIndex = (flickerIndex + 1) % 3;
+            if (bodySr != null) bodySr.sprite = BossFx.JaggedSprite(flickerIndex);
+            if (coreSr != null) coreSr.sprite = BossFx.JaggedSprite(flickerIndex + 1);
+        }
+
+        // 進みながら火花をまき散らす
+        sparkTimer -= dt;
+        if (sparkTimer <= 0f)
+        {
+            sparkTimer = 0.07f;
+            BossFx.SparkBurst(pos, new Color(1f, 0.5f, 0.18f), 1, 1.2f, 0.1f, 0.35f);
+        }
 
         if (playerCol != null && playerHealth != null)
         {

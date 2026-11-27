@@ -34,6 +34,12 @@ public class BossProjectile : MonoBehaviour
     // 弾の見た目（跳ね返ったときに色を変えるために保持する）
     private SpriteRenderer sr;
 
+    // 弾の後ろに残る光の軌跡
+    private TrailRenderer trail;
+
+    // 弾の周りの光（ハロー）。跳ね返ったときに色を変えるために保持する
+    private SpriteRenderer glowSr;
+
     // Spawn：弾を生成して、位置・速度・ダメージなどを設定する
     public static BossProjectile Spawn(Vector2 pos, Vector2 vel, int damage, LayerMask blockMask,
         Collider2D playerCol, PlayerHealth playerHealth, Color color)
@@ -57,9 +63,33 @@ public class BossProjectile : MonoBehaviour
         sr.color = color;
         sr.sortingOrder = 6;       // 描画する順番を設定
 
+        // 弾の周りに柔らかい光（ハロー）を付ける
+        var glow = new GameObject("Glow");
+        glow.transform.SetParent(go.transform, false);
+        glow.transform.localScale = Vector3.one * 2.4f;
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = BossFx.GlowSprite;
+        glowSr.color = new Color(color.r, color.g, color.b, 0.35f);
+        glowSr.sortingOrder = 5;
+
+        // 弾の後ろに光の軌跡を残す
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.18f;
+        trail.startWidth = 0.34f;
+        trail.endWidth = 0f;
+        trail.startColor = new Color(color.r, color.g, color.b, 0.5f);
+        trail.endColor = new Color(color.r, color.g, color.b, 0f);
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.sortingOrder = 5;
+
+        // 発射の瞬間に小さな火花を出す
+        BossFx.SparkBurst(pos, color, 4, 2f, 0.1f, 0.3f);
+
         // BossProjectileを追加して、弾の情報を保存する
         var b = go.AddComponent<BossProjectile>();
         b.sr = sr;
+        b.trail = trail;
+        b.glowSr = glowSr;
         b.velocity = vel;
         b.damage = damage;
         b.blockMask = blockMask;
@@ -86,6 +116,11 @@ public class BossProjectile : MonoBehaviour
 
         // 生存時間がなくなったら弾を削除する
         if (life <= 0f) { Destroy(gameObject); return; }
+
+        // 見た目：弾を回転させ、大きさをわずかに脈動させる
+        transform.Rotate(0f, 0f, 540f * dt);
+        float pulse = 0.6f * (1f + 0.13f * Mathf.Sin(Time.time * 28f));
+        transform.localScale = Vector3.one * pulse;
 
         // 現在の位置と、1フレームで移動する距離を計算
         Vector2 pos = transform.position;
@@ -115,11 +150,27 @@ public class BossProjectile : MonoBehaviour
 
                     // 跳ね返ったことが分かるように色を変える
                     if (sr != null) sr.color = new Color(1f, 0.9f, 0.2f);
+                    if (glowSr != null) glowSr.color = new Color(1f, 0.9f, 0.2f, 0.35f);
+                    if (trail != null)
+                    {
+                        // 移動先が飛ぶので、軌跡がいったん切れるようにする
+                        trail.Clear();
+                        trail.startColor = new Color(1f, 0.9f, 0.2f, 0.5f);
+                        trail.endColor = new Color(1f, 0.9f, 0.2f, 0f);
+                    }
+
+                    // 跳ね返った瞬間にも火花を出す
+                    BossFx.SparkBurst(hit.point + hit.normal * 0.1f,
+                        new Color(1f, 0.9f, 0.2f), 6, 2.5f, 0.1f, 0.35f);
 
                     return;
                 }
 
                 // それ以外の壁・足場に当たった場合と、2回目の反射は弾を削除する
+                // 消える前に火花を散らす
+                BossFx.SparkBurst(hit.point + hit.normal * 0.1f,
+                    reflected ? new Color(1f, 0.9f, 0.2f) : new Color(1f, 0.55f, 0.15f),
+                    8, 3f, 0.11f, 0.4f);
                 Destroy(gameObject); return;
             }
         }
@@ -141,6 +192,7 @@ public class BossProjectile : MonoBehaviour
                     if ((bossClosest - pos).sqrMagnitude <= radius * radius)
                     {
                         boss.TakeDamage(damage, velocity.x >= 0f ? 1 : -1);
+                        BossFx.SparkBurst(pos, new Color(1f, 0.9f, 0.2f), 10, 3.5f, 0.12f, 0.45f);
                         Destroy(gameObject);
                     }
                 }
@@ -161,6 +213,9 @@ public class BossProjectile : MonoBehaviour
                 // プレイヤーにダメージを与える
                 // 弾の進行方向に応じて、吹き飛ばす方向を決める
                 playerHealth.TakeDamage(damage, velocity.x >= 0f ? 1 : -1);
+
+                // 当たった瞬間に火花を散らす
+                BossFx.SparkBurst(pos, new Color(1f, 0.4f, 0.2f), 10, 3.5f, 0.12f, 0.45f);
 
                 // プレイヤーに当たったら弾を削除する
                 Destroy(gameObject);

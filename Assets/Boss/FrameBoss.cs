@@ -25,6 +25,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
     private const float moveTime = 1.7f;                       // ワープ前の予告時間（必ず3秒）
     [SerializeField] private float teleportBlinkInterval = 0.5f;  // 点滅開始時の間隔
     [SerializeField] private float teleportBlinkFastInterval = 0.06f; // カウント終了直前の点滅間隔
+    [SerializeField] private float markerStartScale = 2.4f;        // マーカー表示直後の大きさ（ここから収束する）
+    [SerializeField] private float markerFinalScale = 0.9f;        // マーカーが収束しきったときの大きさ
     [SerializeField] private float destinationPadding = 0.15f;     // ボスの幅に追加する余裕
 
     // 初期障害物への着地
@@ -42,6 +44,15 @@ public class FrameBoss : MonoBehaviour, IDamageable
     // 落下攻撃の予告時間は移動と同じ moveTime(3秒) を使用する
     [SerializeField] private int diveDamage = 1;                   // 落下中にボス本体へ触れたときのダメージ
     [SerializeField] private float downTimeAfterSlam = 2f;         // 落下攻撃後の攻撃チャンスの時間
+    [SerializeField] private float slamDownExtraTime = 1f;      // 落下後ダウンの追加時間（ダウンは落下攻撃の後だけ）
+    [SerializeField] private float minFallHeight = 8f;          // 落下開始地点の最低の高さ（着地点からこの分は必ず上から落とす）
+
+    // 雑魚召喚（HPが半分以下になったら1回だけ）
+    [SerializeField] private GameObject zakoPrefab;             // 召喚する雑魚（Enemyプレハブを入れる。空なら召喚しない）
+    [SerializeField] private int zakoSummonCount = 2;           // 1回で召喚する雑魚の数
+    [SerializeField] private float zakoSummonHpRatio = 0.5f;    // HPがこの割合以下になったら召喚する（0.5 = 半分）
+    private bool zakoSummoned;                                  // 召喚済みかどうか
+    private readonly System.Collections.Generic.List<GameObject> summonedZako = new System.Collections.Generic.List<GameObject>(); // 召喚した雑魚（リセット時に消すため）
 
     // 衝撃波(箱の壁に沿って、両側へ走る)
     [Header("衝撃波(箱の壁に沿って、両側へ走る)")]
@@ -60,6 +71,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
     [SerializeField] private int bulletDamage = 1;                  // 弾がプレイヤーに与えるダメージ
     [SerializeField] private float downTimeAfterShoot = 2f;         // 遠距離攻撃後の攻撃チャンスの時間
     [SerializeField] private LayerMask blockLayers;                 // 弾が止まる壁・足場のレイヤー(StickWall と NoStickWall)
+    [SerializeField] private float aimRingStartRadius = 2.3f;      // 遠距離予告で収束する赤い円の開始半径
+    [SerializeField] private float aimRingEndRadius = 0.45f;       // 遠距離予告で収束する赤い円の最終半径
 
     // 回転攻撃
     [Header("回転攻撃")]
@@ -117,9 +130,45 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     // ワープ出現位置を示すマーカー(通常移動は青、落下攻撃は赤)
     private GameObject spawnMarker;
+    private GameObject aimLineObject;
+    private LineRenderer aimLine;
+    private GameObject aimRingObject;
+    private LineRenderer aimRing;
 
     // ボスの画像を表示するコンポーネント
     private SpriteRenderer sr;
+
+    // ----- 見た目（オブジェクト側で組んだ子オブジェクト） -----
+    // 枠一式（Frame／Plate／Cable／Boltなど）のRendererと、その元の色
+    private readonly List<SpriteRenderer> frameSrs = new List<SpriteRenderer>();
+    private readonly Dictionary<SpriteRenderer, Color> frameBaseColors =
+        new Dictionary<SpriteRenderer, Color>();
+
+    // コアと、その元の色・元の位置
+    private Transform coreTf;
+    private SpriteRenderer coreSr;
+    private Color coreBaseColor = Color.white;
+    private Vector3 coreHomePos;
+
+    // 瞳と、その元の位置・大きさ、コアの中で動ける最大量
+    private Transform pupilTf;
+    private Vector3 pupilBaseScale = Vector3.one;
+
+    // 瞳の追従はワールド座標で行う（親がCoreでもBossでも効くように）
+    private Vector3 pupilHomeWorldOffset;
+    private float pupilMaxWorldOffset = 0.1f;
+
+    // 瞳の動く量の倍率（Inspectorで調整可能。動きが小さく見えたら上げる）
+    [SerializeField] private float pupilMoveScale = 1f;
+
+    // 瞼と、その元の大きさ、今どれだけ閉じているか（0=開、1=閉）
+    private Transform eyelidTf;
+    private Vector3 eyelidFullScale = Vector3.one;
+    private float eyelidClosed01;
+
+    // 瞬きのタイミング
+    private float nextBlinkTime;
+    private float blinkUntil;
 
     // ボスの通常時の色
     private Color baseColor = Color.white;
@@ -139,8 +188,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
     // 点滅する時間
     private float hitFlashDuration = 0.4f;
 
-    // 現在画面に表示する攻撃の説明
-    private string label;
 
     // 落下攻撃の着地点を表示する赤いマーカー
     private GameObject marker;
@@ -157,8 +204,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
     // ボスの行動を管理するコルーチン
     private Coroutine brain;
 
-    // 画面に攻撃名などを表示するための文字設定
-    private GUIStyle bigStyle;
 
     // 落下中か、着地したかを管理する
     private bool isFalling;
@@ -213,6 +258,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // ボスの表示色を初期色に設定
         brainColor = baseColor;
+
+        // オブジェクト側で組んだ見た目の部品（枠・コア・瞳・瞼）を拾う
+        SetupVisualParts();
 
         // Rigidbody2Dを取得
         rb = GetComponent<Rigidbody2D>();
@@ -274,6 +322,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // マーカーが残っていれば削除
         if (marker != null) Destroy(marker);
         if (spawnMarker != null) Destroy(spawnMarker);
+        if (aimLineObject != null) Destroy(aimLineObject);
+        if (aimRingObject != null) Destroy(aimRingObject);
 
         // このボスが現在のInstanceなら、参照を解除
         if (Instance == this) Instance = null;
@@ -413,6 +463,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // プレイヤーとボスの接触を確認し、必要ならダメージを与える
         CheckContact();
+
+        // ボスとプレイヤーが重なっていたら、プレイヤーを押し出してめり込みを解消する
+        ResolvePlayerOverlap();
     }
 
     // 毎フレームの最後に、ボスの色を更新する
@@ -423,7 +476,179 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         // ダメージを受けたときの点滅時間内なら点滅用の色にする
         // それ以外の場合は、通常の表示色にする
-        sr.color = Time.time < flashUntil ? flashColor : brainColor;
+        Color tint = Time.time < flashUntil ? flashColor : brainColor;
+        sr.color = tint;
+
+        // オブジェクト側で組んだ見た目にも色と動きを反映する
+        UpdateVisualParts(tint);
+
+        // 着地の衝撃リングを広げる
+        UpdateImpactRings();
+    }
+
+    // 子孫全体から名前でTransformを探す（直下でなくても拾える）
+    Transform FindDeep(string objName)
+    {
+        Transform loose = null;
+        foreach (var tr in GetComponentsInChildren<Transform>(true))
+        {
+            if (tr.name == objName) return tr;
+            // 「Pupil (1)」のような複製名や大文字小文字の違いでも拾えるようにする
+            if (loose == null && tr.name.StartsWith(objName, System.StringComparison.OrdinalIgnoreCase))
+                loose = tr;
+        }
+        return loose;
+    }
+
+    // オブジェクト側で組んだ見た目の部品を名前で拾う
+    // 枠：Bossの子（CoreとEyelid以外）／コア：Core／瞳：Coreの子のPupil／瞼：Eyelid
+    void SetupVisualParts()
+    {
+        frameSrs.Clear();
+        frameBaseColors.Clear();
+
+        // 名前での探索は階層全体から行う（直下に無くても拾えるように）
+        coreTf = FindDeep("Core");
+        if (coreTf != null)
+        {
+            coreSr = coreTf.GetComponent<SpriteRenderer>();
+            if (coreSr != null) coreBaseColor = coreSr.color;
+            coreHomePos = coreTf.localPosition;
+
+            pupilTf = FindDeep("Pupil");
+            if (pupilTf != null)
+            {
+                pupilBaseScale = pupilTf.localScale;
+
+                // 瞳のホーム位置（コア中心からのワールド座標のずれ）を覚える
+                pupilHomeWorldOffset = pupilTf.position - coreTf.position;
+
+                // 実際の大きさから、コアの中に瞳が収まる最大の移動量（ワールド座標）を出す
+                var pupilSr = pupilTf.GetComponent<SpriteRenderer>();
+                if (coreSr != null && pupilSr != null)
+                {
+                    float coreRadius = coreSr.bounds.extents.x;
+                    float pupilRadius = pupilSr.bounds.extents.x;
+                    // コアに収まる量だと、瞳が大きい場合に動きがほぼ見えなくなるため、
+                    // 最低でもコア半径の18%は動くようにする（ほんの少しだけはみ出すのは許容）
+                    float fit = coreRadius - pupilRadius - 0.02f;
+                    float visible = coreRadius * 0.18f;
+                    pupilMaxWorldOffset = Mathf.Max(fit, visible) * pupilMoveScale;
+                }
+            }
+        }
+
+        eyelidTf = FindDeep("Eyelid");
+        if (eyelidTf != null)
+        {
+            eyelidFullScale = eyelidTf.localScale;
+
+            // 最初は開いた状態（縦を0にして隠す）
+            var s = eyelidTf.localScale;
+            s.y = 0f;
+            eyelidTf.localScale = s;
+            eyelidClosed01 = 0f;
+        }
+
+        // 枠一式：コアと瞼以外の子Rendererを全部拾い、元の色を覚える
+        foreach (var r in GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            if (r == sr) continue;
+            if (coreTf != null && r.transform.IsChildOf(coreTf)) continue;
+            if (pupilTf != null && r.transform == pupilTf) continue;
+            if (eyelidTf != null && r.transform == eyelidTf) continue;
+
+            frameSrs.Add(r);
+            frameBaseColors[r] = r.color;
+        }
+
+        nextBlinkTime = Time.time + 2.5f;
+    }
+
+    // 見た目の部品に、色（予告の点滅）・瞳の向き・瞼・コアの落下を反映する
+    void UpdateVisualParts(Color tint)
+    {
+        float dt = Time.deltaTime;
+        bool flashing = Time.time < flashUntil;
+
+        // 枠一式の色：通常時は元の色、予告や点滅のときはその色へ寄せる
+        foreach (var r in frameSrs)
+        {
+            Color baseCol = frameBaseColors[r];
+            if (!flashing && tint == baseColor)
+            {
+                r.color = baseCol;
+            }
+            else
+            {
+                Color c = Color.Lerp(baseCol, tint, flashing ? 0.85f : 0.8f);
+                c.a = baseCol.a;
+                r.color = c;
+            }
+        }
+
+        // コア：チャンス中は下へ落ちて暗くなる
+        if (coreTf != null)
+        {
+            Vector3 targetPos = coreHomePos + (vulnerable ? new Vector3(0f, -0.13f, 0f) : Vector3.zero);
+            float k = 1f - Mathf.Exp(-10f * dt);
+            coreTf.localPosition = Vector3.Lerp(coreTf.localPosition, targetPos, k);
+
+            if (coreSr != null)
+            {
+                if (flashing) coreSr.color = flashColor;
+                else if (vulnerable)
+                {
+                    Color c = coreBaseColor * 0.55f;
+                    c.a = coreBaseColor.a;
+                    coreSr.color = c;
+                }
+                else coreSr.color = coreBaseColor;
+            }
+        }
+
+        // 瞼：チャンス中だけ閉じる
+        if (eyelidTf != null)
+        {
+            float target = vulnerable ? 1f : 0f;
+            eyelidClosed01 = Mathf.MoveTowards(eyelidClosed01, target, dt / 0.15f);
+
+            var s = eyelidFullScale;
+            s.y = eyelidFullScale.y * eyelidClosed01;
+            eyelidTf.localScale = s;
+            eyelidTf.gameObject.SetActive(eyelidClosed01 > 0.01f);
+        }
+
+        // 瞳：マーカーが出ていればマーカーを、なければプレイヤーを見る
+        if (pupilTf != null && coreTf != null)
+        {
+            Vector3 targetWorld = player != null ? player.position : coreTf.position;
+            if (spawnMarker != null && spawnMarker.activeSelf)
+                targetWorld = spawnMarker.transform.position;
+
+            Vector2 dir = (Vector2)targetWorld - (Vector2)coreTf.position;
+            if (dir.sqrMagnitude > 0.0001f) dir.Normalize();
+
+            // ワールド座標で瞳を動かす（親の違いや大きさ設定の影響を受けない）
+            Vector3 desiredWorld = coreTf.position + pupilHomeWorldOffset
+                + (Vector3)(dir * pupilMaxWorldOffset);
+            float k = 1f - Mathf.Exp(-14f * dt);
+            pupilTf.position = Vector3.Lerp(pupilTf.position, desiredWorld, k);
+
+            // たまに瞬きする（チャンス中は瞼が閉じるのでしない）
+            if (!vulnerable && Time.time >= nextBlinkTime)
+            {
+                blinkUntil = Time.time + 0.12f;
+                nextBlinkTime = Time.time + Random.Range(2.2f, 4.2f);
+            }
+
+            // チャンス中は瞳を隠す（瞼が閉じるのに合わせて縮んで消える）
+            // 瞼が無い場合は、チャンスに入った瞬間に消える
+            float hide01 = eyelidTf != null ? eyelidClosed01 : (vulnerable ? 1f : 0f);
+            var ps = pupilBaseScale * (1f - hide01);
+            if (Time.time < blinkUntil) ps.y *= 0.12f;
+            pupilTf.localScale = ps;
+        }
     }
 
     // ボスがダメージを受けたときの処理
@@ -446,8 +671,97 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // 0.08秒間、ダメージを受けたときの色を表示する
         flashUntil = Time.time + 0.08f;
 
+        // HPが半分以下になったら、1回だけ雑魚を召喚する（倒された場合は召喚しない）
+        if (!zakoSummoned && hp > 0f && hp <= maxHp * zakoSummonHpRatio)
+        {
+            zakoSummoned = true;
+            SummonZako();
+        }
+
         // 体力が0以下になったら、撃破処理を開始する
         if (hp <= 0f) StartCoroutine(DefeatRoutine());
+    }
+
+    // 雑魚を召喚する（出現位置はランダム。障害物にめり込まない位置を探して出す）
+    void SummonZako()
+    {
+        if (zakoPrefab == null) return;
+
+        Rect inner = Inner();
+
+        // めり込み判定に使う大きさ（プレハブの当たり判定から取る）
+        Vector2 checkSize = Vector2.one;
+        var prefabCol = zakoPrefab.GetComponent<Collider2D>();
+        if (prefabCol != null) checkSize = (Vector2)prefabCol.bounds.size + new Vector2(0.15f, 0.15f);
+
+        // 障害物として避けるレイヤー（配置ブロック・初期物・ボス）
+        int blockMask = LayerMask.GetMask("StickWall", "NotStickWall", "Boss");
+
+        var usedPositions = new System.Collections.Generic.List<Vector3>();
+
+        for (int i = 0; i < zakoSummonCount; i++)
+        {
+            Vector3 pos = FindZakoSpawnPosition(inner, checkSize, blockMask, usedPositions);
+            usedPositions.Add(pos);
+
+            var zako = Instantiate(zakoPrefab, pos, Quaternion.identity);
+            summonedZako.Add(zako);
+
+            // Enemyプレハブは配置用にRigidbody2DのY方向が固定されていて、
+            // そのままだと召喚しても落ちてこないので、召喚分だけ固定を外す
+            // （配置してある雑魚には影響しない）
+            var zakoRb = zako.GetComponent<Rigidbody2D>();
+            if (zakoRb != null)
+                zakoRb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+            // 出現したことが分かるよう、その場に火花を出す
+            BossFx.SparkBurst(pos, new Color(1f, 0.45f, 0.35f), 10, 2.8f);
+        }
+    }
+
+    // 障害物にめり込まず、他の召喚位置やプレイヤーとも近すぎない出現位置を探す
+    Vector3 FindZakoSpawnPosition(Rect inner, Vector2 checkSize, int blockMask,
+        System.Collections.Generic.List<Vector3> usedPositions)
+    {
+        for (int attempt = 0; attempt < 12; attempt++)
+        {
+            // 位置も高さもランダム（落ちた先の床や足場で動き出す）
+            Vector3 candidate = new Vector3(
+                Random.Range(inner.xMin + 0.6f, inner.xMax - 0.6f),
+                Random.Range(inner.yMin + 0.6f, inner.yMax - 0.6f),
+                0f);
+
+            // 障害物と重なっていたらやり直し
+            if (Physics2D.OverlapBox(candidate, checkSize, 0f, blockMask) != null)
+                continue;
+
+            // プレイヤーの真上・真下すぎる位置は避ける
+            if (player != null && Vector2.Distance(candidate, player.position) < 1.6f)
+                continue;
+
+            // 他の召喚位置と近すぎたらやり直し
+            bool tooClose = false;
+            foreach (var used in usedPositions)
+            {
+                if (Vector2.Distance(candidate, used) < 1.4f) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+
+            return candidate;
+        }
+
+        // どうしても見つからなければ、ボスの位置（ここは空いていることが保証される）
+        return transform.position;
+    }
+
+    // 召喚した雑魚を全部消す（リトライ時などに残らないように）
+    void ClearSummonedZako()
+    {
+        foreach (var zako in summonedZako)
+        {
+            if (zako != null) Destroy(zako);
+        }
+        summonedZako.Clear();
     }
 
     // ボスが撃破されたときの処理
@@ -474,8 +788,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // ボスの色を灰色に変更
         brainColor = Color.gray;
 
-        // 画面に撃破メッセージを表示
-        label = "撃破!";
 
         // 撃破演出のため、指定した時間だけ待つ
         yield return new WaitForSeconds(defeatDelay);
@@ -511,6 +823,10 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // 体力を最大値に戻す
         hp = maxHp;
 
+        // 雑魚召喚を未使用に戻し、前回の召喚分が残っていれば消す
+        zakoSummoned = false;
+        ClearSummonedZako();
+
         // ボスの当たり判定を有効にする
         col.enabled = true;
 
@@ -520,8 +836,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        // 画面に表示する攻撃メッセージを消す
-        label = null;
 
         // ダメージによる点滅状態を解除
         flashUntil = 0f;
@@ -574,6 +888,14 @@ public class FrameBoss : MonoBehaviour, IDamageable
     {
         if (marker != null) marker.SetActive(false);
         if (spawnMarker != null) spawnMarker.SetActive(false);
+        HideAimVisuals();
+
+        // 衝撃リングも消す
+        foreach (var ring in impactRings)
+        {
+            if (ring.go != null) Destroy(ring.go);
+        }
+        impactRings.Clear();
     }
 
     // ボスの行動を繰り返し実行する
@@ -622,15 +944,17 @@ public class FrameBoss : MonoBehaviour, IDamageable
             }
 
             // 選んだ攻撃を実行
+            // ダウン（チャンス）は落下攻撃の後だけ入る。遠距離の後はダウンしない
             if (nextAttack == MainAttackType.Shoot)
             {
                 yield return ShootAttack();
-                yield return DownTime(downTimeAfterShoot);
             }
             else
             {
                 yield return SlamAttack();
-                yield return DownTime(downTimeAfterSlam);
+
+                // 落下後のダウンは、今の設定値より少し長めにする
+                yield return DownTime(downTimeAfterSlam + slamDownExtraTime);
             }
 
             // 攻撃履歴を更新
@@ -663,8 +987,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // ワープ先に青いひし形マーカーを表示
         ShowMarker(spawnMarker, destination, new Color(0.15f, 0.65f, 1f, 0.9f));
 
-        // ワープ前にボスを青く点滅させる
-        yield return BlinkBeforeTeleport(new Color(0.15f, 0.65f, 1f));
+        // ワープ前の予告（枠は光らせず、マーカーの収束で示す）
+        yield return ConvergeMarkerBeforeTeleport();
 
         // 3秒経過した瞬間にマーカーを消し、同じ位置へボスを移動させる
         if (spawnMarker != null) spawnMarker.SetActive(false);
@@ -824,63 +1148,35 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
         targetMarker.transform.position = position;
         targetMarker.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
+        targetMarker.transform.localScale = Vector3.one * markerStartScale;
         targetMarker.SetActive(true);
 
         SpriteRenderer markerRenderer = targetMarker.GetComponent<SpriteRenderer>();
         if (markerRenderer != null) markerRenderer.color = color;
     }
 
-    // ワープ前にボスと移動先マーカーを点滅させる
-    // 最初はゆっくり、ワープ時刻が近づくほど点滅を速くする
-    IEnumerator BlinkBeforeTeleport(Color blinkColor)
+    // ワープ前の予告: 枠は光らせず、マーカーが収束していくことで残り時間を示す
+    // マーカーは表示したまま、moveTime秒かけて開始サイズから最終サイズへ縮む
+    IEnumerator ConvergeMarkerBeforeTeleport()
     {
-        // マーカーを表示してから、必ずmoveTime秒が経過するまで待つ。
-        // 点滅間隔の合計で待ち時間を計算しないため、点滅速度を変えても3秒を維持する。
         float startTime = Time.time;
         float elapsed = 0f;
-        float nextBlinkTime = 0f;
-        bool showColor = true;
-
-        SpriteRenderer markerRenderer = spawnMarker != null
-            ? spawnMarker.GetComponent<SpriteRenderer>()
-            : null;
-
-        // カウント開始時はマーカーを表示する
-        if (markerRenderer != null)
-            markerRenderer.enabled = true;
 
         while (elapsed < moveTime)
         {
             elapsed = Time.time - startTime;
 
-            // 残り時間に応じて点滅間隔を短くする
             float progress = Mathf.Clamp01(elapsed / Mathf.Max(moveTime, 0.01f));
-            float interval = Mathf.Lerp(
-                teleportBlinkInterval,
-                teleportBlinkFastInterval,
-                progress
-            );
 
-            // 次の点滅時刻になったときだけ表示状態を切り替える
-            if (elapsed >= nextBlinkTime)
-            {
-                showColor = !showColor;
-                brainColor = showColor ? blinkColor : baseColor;
+            if (spawnMarker != null)
+                spawnMarker.transform.localScale = Vector3.one
+                    * Mathf.Lerp(markerStartScale, markerFinalScale, progress);
 
-                if (markerRenderer != null)
-                    markerRenderer.enabled = showColor;
-
-                nextBlinkTime = elapsed + Mathf.Max(interval, 0.01f);
-            }
-
-            // 毎フレーム時間を確認する。これにより合計待ち時間はmoveTime秒になる
             yield return null;
         }
 
-        // 3秒経過。ワープ直前にボスの色を通常色へ戻す
-        brainColor = baseColor;
-        if (markerRenderer != null)
-            markerRenderer.enabled = true;
+        if (spawnMarker != null)
+            spawnMarker.transform.localScale = Vector3.one * markerFinalScale;
     }
 
     // 落下攻撃:
@@ -890,7 +1186,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
     {
         if (player == null) yield break;
 
-        label = "落下!";
         Rect inner = Inner();
         Vector2 landing = FindLandingPosition(player.position.x);
         Vector2 spawnPosition = GetFallSpawnPosition(landing, inner);
@@ -899,15 +1194,10 @@ public class FrameBoss : MonoBehaviour, IDamageable
         if (marker != null) marker.SetActive(false);
         ShowMarker(spawnMarker, spawnPosition, new Color(1f, 0.12f, 0.12f, 0.95f));
 
-        SpriteRenderer spawnRenderer = spawnMarker != null
-            ? spawnMarker.GetComponent<SpriteRenderer>()
-            : null;
-
         float warningStart = Time.time;
-        float nextBlinkTime = 0f;
-        bool markerVisible = true;
 
         // 予告中はプレイヤーの横位置に追従する。出現高度は最も高い初期障害物の上。
+        // 枠は光らせず、マーカーが収束していくことで残り時間を示す
         while (Time.time - warningStart < moveTime)
         {
             if (player != null)
@@ -919,28 +1209,26 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
             float elapsed = Time.time - warningStart;
             float progress = Mathf.Clamp01(elapsed / Mathf.Max(moveTime, 0.01f));
-            float blinkInterval = Mathf.Lerp(teleportBlinkInterval, teleportBlinkFastInterval, progress);
 
-            if (elapsed >= nextBlinkTime)
-            {
-                markerVisible = !markerVisible;
-                brainColor = markerVisible ? Color.red : baseColor;
-                if (spawnRenderer != null) spawnRenderer.enabled = markerVisible;
-                nextBlinkTime = elapsed + Mathf.Max(blinkInterval, 0.01f);
-            }
+            if (spawnMarker != null)
+                spawnMarker.transform.localScale = Vector3.one
+                    * Mathf.Lerp(markerStartScale, markerFinalScale, progress);
 
             yield return null;
         }
 
         if (spawnMarker != null) spawnMarker.SetActive(false);
-        brainColor = baseColor;
-        label = null;
 
         // マーカーが示していた位置に出現し、下方向へ落下する。
         SetPos(spawnPosition);
 
         // 落下中だけ、白ground(StickWall)との衝突を無効にしてすり抜ける
         BeginFallThroughStickWalls();
+
+        // 落下中はプレイヤーとの衝突も無効にする
+        // （頭の上に乗って止まり、時間切れでワープするのを防ぐ。
+        //   接触ダメージは範囲判定で別に出るので影響しない）
+        if (playerCol != null) Physics2D.IgnoreCollision(col, playerCol, true);
 
         isFalling = true;
         hasLanded = false;
@@ -974,11 +1262,19 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // 白groundとの衝突を元に戻す
         EndFallThroughStickWalls();
 
+        // プレイヤーとの衝突を元に戻す
+        if (playerCol != null) Physics2D.IgnoreCollision(col, playerCol, false);
+
         // 黄色い壁に着地した場合は耐久処理（1回でヒビ、2回で破壊）
-        RegisterNoStickSlamHit(lastLandingCollider);
+        bool landedWallDestroyed = RegisterNoStickSlamHit(lastLandingCollider);
 
         if (!hasLanded)
             SetPos(landing);
+
+        // 着地した黄色い壁がこの落下で壊れた場合、
+        // 空中に浮いたままにならないよう、その下の足場（なければ床）へ落とす
+        if (landedWallDestroyed)
+            SetPos(FindLandingPosition(transform.position.x));
 
         Physics2D.SyncTransforms();
         Vector2 impact = transform.position;
@@ -1025,6 +1321,10 @@ public class FrameBoss : MonoBehaviour, IDamageable
             if (IsFallThroughGround(hit.collider))
                 continue;
 
+            // 壁に刺さったナイフも着地候補にしない（落下で砕いて通り抜ける）
+            if (IsStuckKnife(hit.collider))
+                continue;
+
             // ボスが乗れないほど狭い足場は着地点にしない。
             Bounds bounds = hit.collider.bounds;
             float requiredWidth = halfSize.x * 2f + destinationPadding * 2f;
@@ -1048,6 +1348,9 @@ public class FrameBoss : MonoBehaviour, IDamageable
         float x = Mathf.Clamp(landing.x, inner.xMin + halfSize.x, inner.xMax - halfSize.x);
         float highestObstacleTop = inner.yMin;
 
+        // 出現する縦の列にかかる天井側障害物の下端（これより上には出現しない）
+        float ceilingLimit = inner.yMax;
+
         ArenaObstacleGenerator generator = FindObjectOfType<ArenaObstacleGenerator>();
         if (generator != null)
         {
@@ -1058,13 +1361,28 @@ public class FrameBoss : MonoBehaviour, IDamageable
                 // 天井側の障害物は落下開始位置の基準にしない。
                 // 箱の中央より下にある初期物のうち、最も高い上面を使う。
                 if (obstacle.bounds.center.y <= inner.center.y)
+                {
                     highestObstacleTop = Mathf.Max(highestObstacleTop, obstacle.bounds.max.y);
+                }
+                else if (obstacle.bounds.min.x < x + halfSize.x &&
+                         obstacle.bounds.max.x > x - halfSize.x)
+                {
+                    // 出現位置の真上にある天井側障害物にはめり込まないよう、上限をその下端にする
+                    ceilingLimit = Mathf.Min(ceilingLimit, obstacle.bounds.min.y);
+                }
             }
         }
 
         const float headClearance = 0.2f;
         float y = highestObstacleTop + halfSize.y + headClearance;
-        float maxY = inner.yMax - halfSize.y - 0.05f;
+
+        // 床側の初期物が無い・低いと開始地点が極端に低くなるため、
+        // 着地点から最低でも minFallHeight の高さは確保する
+        y = Mathf.Max(y, landing.y + minFallHeight);
+
+        float maxY = Mathf.Min(inner.yMax - halfSize.y - 0.05f,
+                               ceilingLimit - halfSize.y - 0.05f);
+        maxY = Mathf.Max(maxY, inner.yMin + halfSize.y);
         y = Mathf.Clamp(y, inner.yMin + halfSize.y, maxY);
         return new Vector2(x, y);
     }
@@ -1084,6 +1402,14 @@ public class FrameBoss : MonoBehaviour, IDamageable
     {
         if (!isFalling || collision == null)
             return;
+
+        // 落下中に壁に刺さったナイフへ触れたら、ナイフを砕いて落ち続ける
+        // （着地にはしない。足場にしていたナイフは消える）
+        if (collision.collider != null && IsStuckKnife(collision.collider))
+        {
+            Destroy(collision.collider.gameObject);
+            return;
+        }
 
         // 白ground(StickWall)には着地しない（落下攻撃は通す）
         // 初期配置物(InitialObj)には着地する
@@ -1113,6 +1439,16 @@ public class FrameBoss : MonoBehaviour, IDamageable
         if (c.gameObject.layer != LayerMask.NameToLayer("StickWall")) return false;
         if (c.CompareTag("InitialObj")) return false;
         return true;
+    }
+
+    // 壁に刺さったナイフ（足場状態）かどうか
+    // 刺さったナイフは PlatformEffector2D を有効化（usedByEffector = true）しているので、それで見分ける
+    // 飛行中のナイフはトリガーなので対象外
+    bool IsStuckKnife(Collider2D c)
+    {
+        if (c == null || c.isTrigger) return false;
+        if (!c.usedByEffector) return false;
+        return c.GetComponent<PlatformEffector2D>() != null;
     }
 
     // 落下中だけ、白ground(StickWall)との衝突を無効にする
@@ -1149,10 +1485,11 @@ public class FrameBoss : MonoBehaviour, IDamageable
 
     // 黄色い壁(NotStickWall)が落下攻撃を受けたときの処理
     // 1回目: ヒビの代わりに色を暗くする / 2回目: その壁を壊す
-    void RegisterNoStickSlamHit(Collider2D platform)
+    // 戻り値: この落下で壁が壊れたら true
+    bool RegisterNoStickSlamHit(Collider2D platform)
     {
-        if (platform == null) return;
-        if (platform.gameObject.layer != LayerMask.NameToLayer("NotStickWall")) return;
+        if (platform == null) return false;
+        if (platform.gameObject.layer != LayerMask.NameToLayer("NotStickWall")) return false;
 
         int count = 0;
         noStickSlamHits.TryGetValue(platform, out count);
@@ -1163,13 +1500,68 @@ public class FrameBoss : MonoBehaviour, IDamageable
         {
             noStickSlamHits.Remove(platform);
             Destroy(platform.gameObject);
-            return;
+            return true;
         }
 
         // 1回目: ヒビが入ったことが分かるように暗くする
         SpriteRenderer wallSr = platform.GetComponentInChildren<SpriteRenderer>();
         if (wallSr != null)
             wallSr.color = new Color(0.65f, 0.5f, 0.1f);
+
+        return false;
+    }
+
+    // 着地の衝撃リング（広がって消える輪）
+    private class ImpactRing
+    {
+        public GameObject go;
+        public SpriteRenderer sr;
+        public float start;
+    }
+
+    private readonly List<ImpactRing> impactRings = new List<ImpactRing>();
+
+    // 着地点に衝撃リングを出す
+    void SpawnImpactRing(Vector2 pos)
+    {
+        var go = new GameObject("ImpactRing");
+        go.transform.position = pos;
+        go.transform.localScale = Vector3.one * 0.3f;
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = BossFx.RingSprite;
+        sr.color = new Color(1f, 0.6f, 0.25f, 0.85f);
+        sr.sortingOrder = 8;
+
+        impactRings.Add(new ImpactRing { go = go, sr = sr, start = Time.time });
+    }
+
+    // 衝撃リングを広げて薄くし、終わったら消す
+    void UpdateImpactRings()
+    {
+        const float duration = 0.38f;
+        const float maxDiameter = 5.2f;
+
+        for (int i = impactRings.Count - 1; i >= 0; i--)
+        {
+            var ring = impactRings[i];
+            if (ring.go == null) { impactRings.RemoveAt(i); continue; }
+
+            float progress = (Time.time - ring.start) / duration;
+            if (progress >= 1f)
+            {
+                Destroy(ring.go);
+                impactRings.RemoveAt(i);
+                continue;
+            }
+
+            float eased = 1f - Mathf.Pow(1f - progress, 3f);
+            ring.go.transform.localScale = Vector3.one * Mathf.Lerp(0.3f, maxDiameter, eased);
+
+            var c = ring.sr.color;
+            c.a = 0.85f * (1f - progress);
+            ring.sr.color = c;
+        }
     }
 
     // 衝撃波：初期障害物の内側にできた凹凸の輪郭を取得し、着地点から両方向へ走らせる。
@@ -1349,10 +1741,13 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // プレイヤーが存在しない場合は、攻撃を行わず終了する
         if (player == null) yield break;
 
-        // ボスの状態表示を「遠距離!」にする
-        label = "遠距離!";
 
-        //  攻撃前の予兆 
+        //  攻撃前の予兆：赤い円がボスへ収束し、同時にプレイヤーへの照準線を描く
+        // 枠は光らせない
+        EnsureAimVisuals();
+        if (aimLineObject != null) aimLineObject.SetActive(true);
+        if (aimRingObject != null) aimRingObject.SetActive(true);
+
         float t = 0f;
 
         // 設定された予兆時間が経過するまで繰り返す
@@ -1361,21 +1756,24 @@ public class FrameBoss : MonoBehaviour, IDamageable
             // 経過時間を加算する
             t += Time.deltaTime;
 
-            // ボスをオレンジ色と通常色で交互に点滅させる
-            // Time.timeを使うことで、時間に応じて点滅を切り替える
-            brainColor = ((int)(Time.time * 14f) % 2 == 0)
-                ? new Color(1f, 0.55f, 0.1f)
-                : baseColor;
+            float progress = Mathf.Clamp01(t / Mathf.Max(shootTelegraph, 0.01f));
+
+            // 赤い円がボスを中心に収束していく
+            UpdateAimRing(Mathf.Lerp(aimRingStartRadius, aimRingEndRadius, progress));
+
+            // 照準線はプレイヤーを追い続ける
+            if (aimLine != null && player != null)
+            {
+                aimLine.SetPosition(0, transform.position);
+                aimLine.SetPosition(1, player.position);
+            }
 
             // 次のフレームまで待つ
             yield return null;
         }
 
-        // 予兆が終わったので、ボスの色を元に戻す
-        brainColor = baseColor;
-
-        // 状態表示を消す
-        label = null;
+        // 予兆が終わったら円と照準線を消して、発射に入る
+        HideAimVisuals();
 
         //  弾の連射 
         // 設定された弾数だけ、繰り返し弾を発射する
@@ -1408,8 +1806,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // TakeDamage()で、この状態かどうかによってダメージ倍率が変わる
         vulnerable = true;
 
-        // ボスの状態表示を「チャンス!」にする
-        label = "チャンス!";
 
         // 経過時間を初期化する
         float t = 0f;
@@ -1436,8 +1832,6 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // ボスの色を元に戻す
         brainColor = baseColor;
 
-        // 状態表示を消す
-        label = null;
     }
 
 
@@ -1576,27 +1970,21 @@ public class FrameBoss : MonoBehaviour, IDamageable
             ? ArenaRotator.Direction.Clockwise
             : ArenaRotator.Direction.CounterClockwise;
 
-        label = null;
 
         // ボスの予告演出
         Coroutine edgeEffect = StartCoroutine(
             PlayRotationLine(dir)
         );
 
+        // 予告中は枠を光らせない（回転方向は線の描画だけで示す）
         float t = 0f;
 
         while (t < rotateTelegraph)
         {
             t += Time.deltaTime;
 
-            brainColor = ((int)(Time.time * 10f) % 2 == 0)
-                ? new Color(0.7f, 0.3f, 1f)
-                : baseColor;
-
             yield return null;
         }
-
-        brainColor = baseColor;
 
         // 線の描画が完了するまで待つ
         if (edgeEffect != null)
@@ -1620,6 +2008,32 @@ public class FrameBoss : MonoBehaviour, IDamageable
         }
     }
 
+    // ボスとプレイヤーのめり込み解消
+    // ボスはKinematic＋座標の直接指定で動くため、ワープや着地の行き先が
+    // プレイヤーと重なると物理演算では押し戻されず、重なったままになる。
+    // 落下中以外で重なっていたら、めり込んだ分だけプレイヤーを外へ押し出す。
+    void ResolvePlayerOverlap()
+    {
+        // 落下中は接触ダメージを優先するので押し出さない
+        if (isFalling) return;
+        if (col == null || playerCol == null) return;
+
+        // 2つのColliderの距離情報（重なっている場合は isOverlapped が true になる）
+        ColliderDistance2D d = Physics2D.Distance(col, playerCol);
+        if (!d.isOverlapped) return;
+
+        // めり込んだ深さ（-d.distance）＋少しの余白だけ、ボスから離れる方向へ押し出す
+        Vector2 push = d.normal * (-d.distance + 0.02f);
+
+        var prb = playerCol.attachedRigidbody;
+        if (prb != null)
+            prb.position += push;
+        else if (player != null)
+            player.position += (Vector3)push;
+
+        Physics2D.SyncTransforms();
+    }
+
     //  接触ダメージ(落下中だけ)
     // ボスとプレイヤーが接触しているかを確認し、
     // 落下中に接触していた場合だけプレイヤーにダメージを与える。
@@ -1641,6 +2055,61 @@ public class FrameBoss : MonoBehaviour, IDamageable
     }
 
     // 落下攻撃の着地点を示すマーカーを作成する
+    // 遠距離攻撃の予告用（照準線と、収束する赤い円）を用意する
+    void EnsureAimVisuals()
+    {
+        if (aimLineObject == null)
+        {
+            aimLineObject = new GameObject("AimLine");
+            aimLine = aimLineObject.AddComponent<LineRenderer>();
+            aimLine.useWorldSpace = true;
+            aimLine.startWidth = 0.05f;
+            aimLine.endWidth = 0.05f;
+            aimLine.startColor = new Color(1f, 0.2f, 0.2f, 0.9f);
+            aimLine.endColor = new Color(1f, 0.2f, 0.2f, 0.9f);
+            aimLine.material = new Material(Shader.Find("Sprites/Default"));
+            aimLine.sortingOrder = 20;
+            aimLine.positionCount = 2;
+            aimLineObject.SetActive(false);
+        }
+
+        if (aimRingObject == null)
+        {
+            aimRingObject = new GameObject("AimRing");
+            aimRing = aimRingObject.AddComponent<LineRenderer>();
+            aimRing.useWorldSpace = true;
+            aimRing.startWidth = 0.06f;
+            aimRing.endWidth = 0.06f;
+            aimRing.startColor = new Color(1f, 0.15f, 0.15f, 0.95f);
+            aimRing.endColor = new Color(1f, 0.15f, 0.15f, 0.95f);
+            aimRing.material = new Material(Shader.Find("Sprites/Default"));
+            aimRing.sortingOrder = 20;
+            aimRing.loop = true;
+            aimRing.positionCount = 48;
+            aimRingObject.SetActive(false);
+        }
+    }
+
+    // 収束する赤い円を、ボスを中心に描く
+    void UpdateAimRing(float radius)
+    {
+        if (aimRing == null) return;
+
+        Vector3 center = transform.position;
+        for (int i = 0; i < 48; i++)
+        {
+            float a = (i / 48f) * Mathf.PI * 2f;
+            aimRing.SetPosition(i, center + new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * radius);
+        }
+    }
+
+    // 照準線と赤い円を消す
+    void HideAimVisuals()
+    {
+        if (aimLineObject != null) aimLineObject.SetActive(false);
+        if (aimRingObject != null) aimRingObject.SetActive(false);
+    }
+
     GameObject MakeMarker(string objectName)
     {
         // マーカー用のGameObjectを作成する
@@ -1655,8 +2124,8 @@ public class FrameBoss : MonoBehaviour, IDamageable
         // 描画順を設定する(数字が大きいほど手前に表示される)
         msr.sortingOrder = 4;
 
-        // 正方形を45度回転させ、ひし形にする
-        go.transform.localScale = Vector3.one * 1.5f;
+        // 正方形を45度回転させ、ひし形にする（大きさは収束の開始サイズ）
+        go.transform.localScale = Vector3.one * markerStartScale;
         go.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
 
         // 作成直後はマーカーを非表示にしておく
@@ -1721,26 +2190,5 @@ public class FrameBoss : MonoBehaviour, IDamageable
             $"フレーム {Mathf.CeilToInt(hp)}/{maxHp}"
         );
 
-        // 前兆と攻撃タイミングの表示
-        if (!string.IsNullOrEmpty(label))
-        {
-            if (bigStyle == null)
-            {
-                bigStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 48,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold
-                };
-            }
-
-            bigStyle.normal.textColor = new Color(1f, 0.85f, 0.3f);
-
-            GUI.Label(
-                new Rect(0f, Screen.height * 0.2f, Screen.width, 80f),
-                label,
-                bigStyle
-            );
-        }
     }
 }
